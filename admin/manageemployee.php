@@ -1,3 +1,72 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+
+// Handle employee status change (active/inactive)
+if (isset($_GET['del']) && !empty($_GET['del'])) {
+    $empId = intval($_GET['del']);
+    try {
+        // Check if employee has any pending leaves
+        $checkSql = "SELECT COUNT(*) FROM tblleaves WHERE empid = :empId AND Status = 0";
+        $checkStmt = $dbh->prepare($checkSql);
+        $checkStmt->bindParam(':empId', $empId, PDO::PARAM_INT);
+        $checkStmt->execute();
+        
+        if ($checkStmt->fetchColumn() > 0) {
+            $error = "Cannot deactivate employee. They have pending leave applications.";
+        } else {
+            // Toggle employee status
+            $sql = "UPDATE tblemployees SET Status = NOT Status WHERE id = :empId";
+            $stmt = $dbh->prepare($sql);
+            $stmt->bindParam(':empId', $empId, PDO::PARAM_INT);
+            
+            if ($stmt->execute()) {
+                $success = "Employee status updated successfully";
+            } else {
+                $error = "Error updating employee status";
+            }
+        }
+    } catch(PDOException $e) {
+        $error = "Error: " . $e->getMessage();
+    }
+}
+
+// Fetch all employees with their department names
+try {
+    $sql = "SELECT e.*, d.DepartmentName 
+            FROM tblemployees e 
+            LEFT JOIN tbldepartments d ON e.Department = d.id 
+            ORDER BY e.id DESC";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $employees = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error = "Error fetching employees: " . $e->getMessage();
+}
+
+// Get messages from session
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $error = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -257,9 +326,23 @@
   </h2>
 
   <div class="card p-4">
+    <?php if($error): ?>
+    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <?php echo htmlentities($error); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <?php endif; ?>
+
+    <?php if($success): ?>
+    <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+        <?php echo htmlentities($success); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <?php endif; ?>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h4 class="mb-0">Employees Info</h4>
-      <input type="text" class="form-control w-25 search-input" placeholder="Search...">
+      <input type="text" class="form-control w-25 search-input" id="searchInput" placeholder="Search employees...">
     </div>
 
     <div class="table-responsive">
@@ -276,59 +359,47 @@
           </tr>
         </thead>
         <tbody>
+          <?php if(!empty($employees)): 
+                $cnt = 1;
+                foreach($employees as $emp):
+          ?>
           <tr>
-            <td>1</td>
-            <td>10805121</td>
-            <td>Rahul Kumar</td>
-            <td>Information Technology</td>
-            <td><span class="badge bg-success">Active</span></td>
-            <td>2023-09-01 20:50</td>
+            <td><?php echo htmlentities($cnt); ?></td>
+            <td><?php echo htmlentities($emp['EmpId']); ?></td>
+            <td><?php echo htmlentities($emp['FirstName'] . ' ' . $emp['LastName']); ?></td>
+            <td><?php echo htmlentities($emp['DepartmentName']); ?></td>
             <td>
-            <a href="editemployee.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to inactive this employee?');">Delete</a>
+              <span class="badge <?php echo $emp['Status'] ? 'bg-success' : 'bg-danger'; ?>">
+                <?php echo $emp['Status'] ? 'Active' : 'Inactive'; ?>
+              </span>
+            </td>
+            <td><?php echo htmlentities(date('Y-m-d H:i', strtotime($emp['RegDate']))); ?></td>
+            <td>
+              <a href="editemployee.php?id=<?php echo htmlentities($emp['id']); ?>" 
+                 class="btn btn-view btn-action me-1">Edit</a>
+              <a href="manageemployee.php?del=<?php echo htmlentities($emp['id']); ?>" 
+                 class="btn btn-danger btn-action" 
+                 onclick="return confirm('Are you sure you want to <?php echo $emp['Status'] ? 'deactivate' : 'activate'; ?> this employee?');">
+                 <?php echo $emp['Status'] ? 'Deactivate' : 'Activate'; ?>
+              </a>
             </td>
           </tr>
+          <?php 
+                $cnt++;
+                endforeach;
+              else: 
+          ?>
           <tr>
-            <td>2</td>
-            <td>10235612</td>
-            <td>Garima Yadav</td>
-            <td>Accounts</td>
-            <td><span class="badge bg-success">Active</span></td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editemployee.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to inactive this employee?');">Delete</a>
-            </td>
+            <td colspan="7" class="text-center">No employees found</td>
           </tr>
-          <tr>
-            <td>3</td>
-            <td>7856214</td>
-            <td>John Doe</td>
-            <td>Accounts</td>
-            <td><span class="badge bg-success">Active</span></td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editemployee.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to inactive this employee?');">Delete</a>
-            </td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td>7856214</td>
-            <td>Garima</td>
-            <td>Information Technology</td>
-            <td><span class="badge bg-success">Active</span></td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editemployee.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to inactive this employee?');">Delete</a>
-            </td>
-          </tr>
+          <?php endif; ?>
         </tbody>
       </table>
     </div>
 
-    <p class="text-muted mt-3">Showing 1 to 4 of 4 entries</p>
+    <p class="text-muted mt-3">
+      Showing <?php echo !empty($employees) ? '1 to ' . count($employees) . ' of ' . count($employees) : '0'; ?> entries
+    </p>
   </div>
 </div>
 
@@ -338,6 +409,29 @@
   document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('mainContent').classList.toggle('collapsed');
+  });
+
+  document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('table tbody tr');
+    
+    tableRows.forEach(row => {
+        const empId = row.cells[1]?.textContent || '';
+        const fullName = row.cells[2]?.textContent || '';
+        const department = row.cells[3]?.textContent || '';
+        
+        const matchesSearch = empId.toLowerCase().includes(searchTerm) ||
+                            fullName.toLowerCase().includes(searchTerm) ||
+                            department.toLowerCase().includes(searchTerm);
+        
+        row.style.display = matchesSearch ? '' : 'none';
+    });
+  });
+
+  // Initialize tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
   });
 </script>
 </body>
