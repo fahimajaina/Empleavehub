@@ -216,11 +216,82 @@ try {
       background-color: transparent;
       border: 1px solid #7AC6D2;
       color: #7AC6D2;
-    }
-
-    .btn-view:hover {
+    }    .btn-view:hover {
       background-color: #7AC6D2;
       color: white;
+    }
+
+    /* Custom Alert Styling */
+    .custom-alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      font-weight: 500;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .alert-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-icon {
+      font-size: 24px;
+    }
+
+    .alert-text {
+      font-size: 15px;
+    }
+
+    .alert-close {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      transition: background-color 0.2s;
+    }
+
+    .alert-danger {
+      background-color: #ffe3e3;
+      color: #dc3545;
+    }
+
+    .alert-success {
+      background-color: #e0f5f4;
+      color: #48A6A7;
+    }
+
+    .alert-danger .alert-close {
+      color: #dc3545;
+    }
+
+    .alert-success .alert-close {
+      color: #48A6A7;
+    }
+
+    .alert-close:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateY(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     @media (max-width: 768px) {
@@ -309,13 +380,28 @@ try {
   <h2 class="fw-bold mb-4" style="color: #344C64;">
     <i class="material-icons me-2" style="color: #7AC6D2;">event_note</i> Manage Leave Type
   </h2>
-
   <div class="card p-4">
     <?php if ($error): ?>
-      <div class="alert alert-danger"><?php echo $error; ?></div>
+      <div class="custom-alert alert-danger" role="alert">
+        <div class="alert-content">
+          <i class="material-icons alert-icon">error_outline</i>
+          <span class="alert-text"><?php echo $error; ?></span>
+        </div>
+        <button type="button" class="alert-close" onclick="this.parentElement.style.display='none';">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
     <?php endif; ?>
     <?php if ($success): ?>
-      <div class="alert alert-success"><?php echo $success; ?></div>
+      <div class="custom-alert alert-success" role="alert">
+        <div class="alert-content">
+          <i class="material-icons alert-icon">check_circle</i>
+          <span class="alert-text"><?php echo $success; ?></span>
+        </div>
+        <button type="button" class="alert-close" onclick="this.parentElement.style.display='none';">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
     <?php endif; ?>
 
     <div class="d-flex justify-content-between align-items-center mb-4">
