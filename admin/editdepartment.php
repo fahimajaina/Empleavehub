@@ -1,3 +1,97 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+$departmentData = null;
+
+// Check if department ID is provided
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    header('location: managedepartments.php');
+    exit();
+}
+
+$deptId = intval($_GET['id']);
+
+// Fetch department details
+try {
+    $sql = "SELECT * FROM tbldepartments WHERE id = :deptId";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':deptId', $deptId, PDO::PARAM_INT);
+    $query->execute();
+    
+    if ($query->rowCount() > 0) {
+        $departmentData = $query->fetch(PDO::FETCH_ASSOC);
+    } else {
+        header('location: managedepartments.php');
+        exit();
+    }
+} catch(PDOException $e) {
+    $error = "Error fetching department details: " . $e->getMessage();
+}
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Get form data
+    $deptname = trim($_POST['departmentname']);
+    $deptshortname = trim($_POST['departmentshortname']);
+    $deptcode = trim($_POST['deptcode']);
+
+    // Validate input
+    if (empty($deptname) || empty($deptshortname) || empty($deptcode)) {
+        $error = "All fields are required";    } else {
+        try {
+            // Check if department name, short name or code already exists (excluding current department)
+            $checkSql = "SELECT id FROM tbldepartments WHERE 
+                        (DepartmentName = :deptname OR DepartmentShortName = :deptshortname OR DepartmentCode = :deptcode) 
+                        AND id != :deptId";
+            $checkQuery = $dbh->prepare($checkSql);
+            $checkQuery->bindParam(':deptname', $deptname, PDO::PARAM_STR);
+            $checkQuery->bindParam(':deptshortname', $deptshortname, PDO::PARAM_STR);
+            $checkQuery->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
+            $checkQuery->bindParam(':deptId', $deptId, PDO::PARAM_INT);
+            $checkQuery->execute();
+
+            if ($checkQuery->rowCount() > 0) {
+                $error = "Department name, short name or code already exists";
+            } else {                // Update department
+                $sql = "UPDATE tbldepartments SET 
+                        DepartmentName = :deptname,
+                        DepartmentShortName = :shortname,
+                        DepartmentCode = :deptcode
+                        WHERE id = :deptId";
+                
+                $query = $dbh->prepare($sql);
+                $query->bindParam(':deptname', $deptname, PDO::PARAM_STR);
+                $query->bindParam(':shortname', $deptshortname, PDO::PARAM_STR);
+                $query->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
+                $query->bindParam(':deptId', $deptId, PDO::PARAM_INT);
+                
+                if ($query->execute()) {
+                    $_SESSION['success'] = "Department updated successfully";
+                    header('location: managedepartments.php');
+                    exit();
+                } else {
+                    $error = "Something went wrong. Please try again";
+                }
+            }
+        } catch(PDOException $e) {
+            $error = "Error updating department: " . $e->getMessage();
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -296,24 +390,35 @@
         <div class="card shadow-sm">
           <h3 class="text-heading mb-4">Update Department</h3>
 
-          <form>
+          <?php if ($error): ?>
+          <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <?php echo htmlentities($error); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          <?php endif; ?>
+
+          <form method="POST" autocomplete="off" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . '?id=' . $deptId); ?>">
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentname" placeholder=" " value="Human Resource" required>
+              <input type="text" class="form-control" id="departmentname" name="departmentname" 
+                     placeholder=" " value="<?php echo htmlentities($departmentData['DepartmentName']); ?>" required>
               <label for="departmentname">Department Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentshortname" placeholder=" " value="HR" required>
+              <input type="text" class="form-control" id="departmentshortname" name="departmentshortname" 
+                     placeholder=" " value="<?php echo htmlentities($departmentData['DepartmentShortName']); ?>" required>
               <label for="departmentshortname">Department Short Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="deptcode" placeholder=" " value="HR01" required>
+              <input type="text" class="form-control" id="deptcode" name="deptcode" 
+                     placeholder=" " value="<?php echo htmlentities($departmentData['DepartmentCode']); ?>" required>
               <label for="deptcode">Department Code</label>
             </div>
 
             <div class="form-group mb-0">
               <button type="submit" class="custom-btn">Update</button>
+              <a href="managedepartments.php" class="btn btn-secondary w-100 mt-3" style="border-radius: 12px;">Cancel</a>
             </div>
           </form>
         </div>
