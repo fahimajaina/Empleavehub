@@ -1,3 +1,118 @@
+<?php
+session_start();
+include('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Get employee ID from URL
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    header('location: manageemployee.php');
+    exit();
+}
+
+$empid = intval($_GET['id']);
+
+// Generate CSRF token if not exists
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $error = 'Invalid CSRF token';
+    } else {
+        // Validate input
+        $firstName = trim($_POST['firstName']);
+        $lastName = trim($_POST['lastName']);
+        $mobileno = trim($_POST['mobileno']);
+        $gender = trim($_POST['gender']);
+        $dob = trim($_POST['dob']);
+        $department = intval($_POST['department']);
+        $address = trim($_POST['address']);
+        $city = trim($_POST['city']);
+        $country = trim($_POST['country']);
+
+        // Basic validation
+        if (empty($firstName) || !preg_match("/^[a-zA-Z ]*$/", $firstName)) {
+            $error = 'First name should contain only letters';
+        } elseif (empty($lastName) || !preg_match("/^[a-zA-Z ]*$/", $lastName)) {
+            $error = 'Last name should contain only letters';
+        } elseif (empty($mobileno) || !preg_match("/^[0-9]{10,11}$/", $mobileno)) {
+            $error = 'Mobile number should be 10-11 digits';
+        } elseif (empty($dob)) {
+            $error = 'Date of birth is required';
+        } else {
+            // Calculate age
+            $birthDate = new DateTime($dob);
+            $today = new DateTime();
+            $age = $birthDate->diff($today)->y;
+            
+            if ($age < 18) {
+                $error = 'Employee must be at least 18 years old';
+            } else {
+                try {
+                    // Update employee information
+                    $sql = "UPDATE tblemployees SET FirstName=:firstName, LastName=:lastName, 
+                            Phonenumber=:mobileno, Gender=:gender, Dob=:dob, Department=:department, 
+                            Address=:address, City=:city, Country=:country 
+                            WHERE id=:empid";
+                    
+                    $query = $dbh->prepare($sql);
+                    $query->bindParam(':firstName', $firstName, PDO::PARAM_STR);
+                    $query->bindParam(':lastName', $lastName, PDO::PARAM_STR);
+                    $query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
+                    $query->bindParam(':gender', $gender, PDO::PARAM_STR);
+                    $query->bindParam(':dob', $dob, PDO::PARAM_STR);
+                    $query->bindParam(':department', $department, PDO::PARAM_INT);
+                    $query->bindParam(':address', $address, PDO::PARAM_STR);
+                    $query->bindParam(':city', $city, PDO::PARAM_STR);
+                    $query->bindParam(':country', $country, PDO::PARAM_STR);
+                    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+
+                    if ($query->execute()) {
+                        $success = 'Employee record updated successfully';
+                    } else {
+                        $error = 'Something went wrong. Please try again';
+                    }
+                } catch (PDOException $e) {
+                    $error = 'Database Error: ' . $e->getMessage();
+                }
+            }
+        }
+    }
+}
+
+// Fetch employee data
+try {
+    $sql = "SELECT e.*, d.DepartmentName FROM tblemployees e 
+            LEFT JOIN tbldepartments d ON e.Department = d.id 
+            WHERE e.id=:empid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+    $query->execute();
+    $employee = $query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$employee) {
+        header('location: manageemployee.php');
+        exit();
+    }
+
+    // Fetch departments
+    $sql = "SELECT id, DepartmentName FROM tbldepartments";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = 'Database Error: ' . $e->getMessage();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -266,63 +381,79 @@
 <div class="main-content" id="main-content">
   <h4 class="mb-4 heading-colored"><span class="material-icons me-2">edit</span> Update Employee Info</h4>
 
-  <form class="form-section">
+  <?php if (!empty($error)): ?>
+    <div class="alert alert-danger" role="alert">
+      <?php echo htmlspecialchars($error); ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <?php endif; ?>
+
+  <?php if (!empty($success)): ?>
+    <div class="alert alert-success" role="alert">
+      <?php echo htmlspecialchars($success); ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  <?php endif; ?>
+
+  <form class="form-section" method="POST" id="updateEmployeeForm">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
     <div class="row g-4">
       <div class="col-md-6">
         <label for="empcode" class="form-label">Employee Code</label>
-        <input type="text" class="form-control" name="empcode" id="empcode" value="EMP12345" autocomplete="off" readonly required>
+        <input type="text" class="form-control" name="empcode" id="empcode" value="<?php echo htmlspecialchars($employee['EmpId']); ?>" readonly required>
       </div>
       <div class="col-md-6">
         <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" name="email" value="employee@example.com" readonly autocomplete="off" required>
+        <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($employee['EmailId']); ?>" readonly required>
       </div>
       <div class="col-md-6">
         <label for="firstName" class="form-label">First Name</label>
-        <input type="text" class="form-control" id="firstName" name="firstName" value="John" required>
+        <input type="text" class="form-control" id="firstName" name="firstName" value="<?php echo htmlspecialchars($employee['FirstName']); ?>" required>
       </div>
       <div class="col-md-6">
         <label for="lastName" class="form-label">Last Name</label>
-        <input type="text" class="form-control" id="lastName" name="lastName" value="Doe" autocomplete="off" required>
+        <input type="text" class="form-control" id="lastName" name="lastName" value="<?php echo htmlspecialchars($employee['LastName']); ?>" required>
       </div>
       <div class="col-md-6">
         <label for="phone" class="form-label">Mobile Number</label>
-        <input type="tel" class="form-control" id="phone" name="mobileno" value="01700000000" maxlength="11" autocomplete="off" required>
+        <input type="tel" class="form-control" id="phone" name="mobileno" value="<?php echo htmlspecialchars($employee['Phonenumber']); ?>" maxlength="11" required>
       </div>
       <div class="col-md-6">
         <label for="gender" class="form-label">Gender</label>
         <select class="form-select" id="gender" name="gender" required>
-          <option selected>Male</option>
-          <option>Female</option>
-          <option>Other</option>
+          <option value="Male" <?php echo ($employee['Gender'] == 'Male') ? 'selected' : ''; ?>>Male</option>
+          <option value="Female" <?php echo ($employee['Gender'] == 'Female') ? 'selected' : ''; ?>>Female</option>
+          <option value="Other" <?php echo ($employee['Gender'] == 'Other') ? 'selected' : ''; ?>>Other</option>
         </select>
       </div>
       <div class="col-md-6">
         <label for="dob" class="form-label">Date of Birth</label>
-        <input type="date" class="form-control" id="birthdate" name="dob" value="1990-01-01" required>
+        <input type="date" class="form-control" id="birthdate" name="dob" value="<?php echo htmlspecialchars($employee['Dob']); ?>" required>
       </div>
       <div class="col-md-6">
         <label for="department" class="form-label">Department</label>
         <select class="form-select" id="department" name="department" required>
-          <option selected>IT</option>
-          <option>HR</option>
-          <option>Finance</option>
-          <option>Marketing</option>
+          <?php foreach ($departments as $dept): ?>
+            <option value="<?php echo htmlspecialchars($dept['id']); ?>" <?php echo ($employee['Department'] == $dept['id']) ? 'selected' : ''; ?>>
+              <?php echo htmlspecialchars($dept['DepartmentName']); ?>
+            </option>
+          <?php endforeach; ?>
         </select>
       </div>
       <div class="col-md-6">
         <label for="address" class="form-label">Address</label>
-        <input type="text" class="form-control" id="address" name="address" value="123, Main Street" autocomplete="off" required>
+        <input type="text" class="form-control" id="address" name="address" value="<?php echo htmlspecialchars($employee['Address']); ?>" required>
       </div>
       <div class="col-md-6">
         <label for="city" class="form-label">City/Town</label>
-        <input type="text" class="form-control" id="city" name="city" value="Dhaka" autocomplete="off" required>
+        <input type="text" class="form-control" id="city" name="city" value="<?php echo htmlspecialchars($employee['City']); ?>" required>
       </div>
       <div class="col-md-6">
         <label for="country" class="form-label">Country</label>
-        <input type="text" class="form-control" id="country" name="country" value="Bangladesh" autocomplete="off" required>
+        <input type="text" class="form-control" id="country" name="country" value="<?php echo htmlspecialchars($employee['Country']); ?>" required>
       </div>
       <div class="col-12 mt-3">
-        <button type="submit" name="update"  id="update" class="btn btn-custom w-100">Update</button>
+        <button type="submit" name="update" id="update" class="btn btn-custom w-100">Update</button>
       </div>
     </div>
   </form>
@@ -330,11 +461,51 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Client-side validation -->
 <script>
-  document.getElementById('menu-toggle').addEventListener('click', function () {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-    document.getElementById('main-content').classList.toggle('collapsed');
-  });
+document.getElementById('updateEmployeeForm').addEventListener('submit', function(e) {
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const dob = new Date(document.getElementById('birthdate').value);
+  const today = new Date();
+  const age = today.getFullYear() - dob.getFullYear();
+  let isValid = true;
+  let errorMessage = '';
+
+  // Name validation
+  if (!/^[a-zA-Z ]*$/.test(firstName)) {
+    errorMessage = 'First name should contain only letters';
+    isValid = false;
+  } else if (!/^[a-zA-Z ]*$/.test(lastName)) {
+    errorMessage = 'Last name should contain only letters';
+    isValid = false;
+  }
+
+  // Phone validation
+  if (!/^[0-9]{10,11}$/.test(phone)) {
+    errorMessage = 'Mobile number should be 10-11 digits';
+    isValid = false;
+  }
+
+  // Age validation
+  if (age < 18) {
+    errorMessage = 'Employee must be at least 18 years old';
+    isValid = false;
+  }
+
+  if (!isValid) {
+    e.preventDefault();
+    alert(errorMessage);
+  }
+});
+
+// Sidebar toggle
+document.getElementById('menu-toggle').addEventListener('click', function () {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main-content').classList.toggle('collapsed');
+});
 </script>
 </body>
 </html>

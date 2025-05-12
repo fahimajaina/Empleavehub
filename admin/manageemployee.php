@@ -373,10 +373,8 @@ if (isset($_SESSION['error'])) {
                 <?php echo $emp['Status'] ? 'Active' : 'Inactive'; ?>
               </span>
             </td>
-            <td><?php echo htmlentities(date('Y-m-d H:i', strtotime($emp['RegDate']))); ?></td>
-            <td>
-              <a href="editemployee.php?id=<?php echo htmlentities($emp['id']); ?>" 
-                 class="btn btn-view btn-action me-1">Edit</a>
+            <td><?php echo htmlentities(date('Y-m-d H:i', strtotime($emp['RegDate']))); ?></td>            <td>
+              <a href="editemployee.php?id=<?php echo htmlentities($emp['id']); ?>" class="btn btn-view btn-action me-1">Edit</a>
               <a href="manageemployee.php?del=<?php echo htmlentities($emp['id']); ?>" 
                  class="btn btn-danger btn-action" 
                  onclick="return confirm('Are you sure you want to <?php echo $emp['Status'] ? 'deactivate' : 'activate'; ?> this employee?');">
