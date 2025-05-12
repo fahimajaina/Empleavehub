@@ -1,3 +1,95 @@
+<?php
+session_start();
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+$error = '';
+$success = '';
+$leaveType = null;
+
+// Check if ID is provided and is valid
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    header('location: manageleavetype.php');
+    exit();
+}
+
+$id = intval($_GET['id']);
+
+// Fetch leave type details
+try {
+    $sql = "SELECT * FROM tblleavetype WHERE id = :id";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':id', $id, PDO::PARAM_INT);
+    $query->execute();
+    $leaveType = $query->fetch(PDO::FETCH_ASSOC);
+
+    // If no leave type found with this ID
+    if (!$leaveType) {
+        header('location: manageleavetype.php');
+        exit();
+    }
+} catch (PDOException $e) {
+    $error = "Database Error: " . $e->getMessage();
+}
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        // Get and sanitize form data
+        $leaveTypeName = trim($_POST['leave_type']);
+        $description = trim($_POST['description']);
+        $maxAllowed = intval($_POST['max_allowed']);
+
+        // Validate input
+        if (empty($leaveTypeName)) {
+            throw new Exception("Leave type name is required");
+        }
+        if (empty($description)) {
+            throw new Exception("Description is required");
+        }
+        if ($maxAllowed <= 0) {
+            throw new Exception("Maximum times allowed must be greater than 0");
+        }
+
+        // Check if the leave type name already exists (excluding current record)
+        $checkSql = "SELECT id FROM tblleavetype WHERE LeaveType = :leaveType AND id != :id";
+        $checkQuery = $dbh->prepare($checkSql);
+        $checkQuery->bindParam(':leaveType', $leaveTypeName, PDO::PARAM_STR);
+        $checkQuery->bindParam(':id', $id, PDO::PARAM_INT);
+        $checkQuery->execute();
+
+        if ($checkQuery->rowCount() > 0) {
+            throw new Exception("This leave type name already exists");
+        }
+
+        // Update leave type
+        $sql = "UPDATE tblleavetype SET LeaveType = :leaveType, Description = :description, max = :maxAllowed 
+                WHERE id = :id";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':leaveType', $leaveTypeName, PDO::PARAM_STR);
+        $query->bindParam(':description', $description, PDO::PARAM_STR);
+        $query->bindParam(':maxAllowed', $maxAllowed, PDO::PARAM_INT);
+        $query->bindParam(':id', $id, PDO::PARAM_INT);
+
+        if ($query->execute()) {
+            $success = "Leave type updated successfully";
+            // Refresh the leave type data
+            $leaveType['LeaveType'] = $leaveTypeName;
+            $leaveType['Description'] = $description;
+            $leaveType['max'] = $maxAllowed;
+        } else {
+            throw new Exception("Something went wrong. Please try again");
+        }
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -210,20 +302,77 @@
 
     .custom-btn:hover {
       background-color: rgb(66, 155, 193);
+    }    /* Custom Alert Styling */
+    .custom-alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      font-weight: 500;
+      animation: slideIn 0.3s ease-out;
     }
 
-    .errorWrap {
-      padding: 10px;
-      margin-bottom: 20px;
-      background: #fff3f3;
-      border-left: 4px solid #d9534f;
+    .alert-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .succWrap {
-      padding: 10px;
-      margin-bottom: 20px;
-      background: #e7f9ed;
-      border-left: 4px solid #5cb85c;
+    .alert-icon {
+      font-size: 24px;
+    }
+
+    .alert-text {
+      font-size: 15px;
+    }
+
+    .alert-close {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      transition: background-color 0.2s;
+    }
+
+    .alert-danger {
+      background-color: #ffe3e3;
+      color: #dc3545;
+    }
+
+    .alert-success {
+      background-color: #e0f5f4;
+      color: #48A6A7;
+    }
+
+    .alert-danger .alert-close {
+      color: #dc3545;
+    }
+
+    .alert-success .alert-close {
+      color: #48A6A7;
+    }
+
+    .alert-close:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateY(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
   </style>
 </head>
@@ -306,25 +455,50 @@
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-md-6">
-        <div class="card shadow-sm">
-          <h3 class="text-heading mb-4">Update Leave Type</h3>
+        <div class="card shadow-sm">          <h3 class="text-heading mb-4">Update Leave Type</h3>
 
-          <form>
+          <?php if ($error): ?>
+            <div class="custom-alert alert-danger" role="alert">
+              <div class="alert-content">
+                <i class="material-icons alert-icon">error_outline</i>
+                <span class="alert-text"><?php echo $error; ?></span>
+              </div>
+              <button type="button" class="alert-close" onclick="this.parentElement.style.display='none';">
+                <i class="material-icons">close</i>
+              </button>
+            </div>
+          <?php endif; ?>
+
+          <?php if ($success): ?>
+            <div class="custom-alert alert-success" role="alert">
+              <div class="alert-content">
+                <i class="material-icons alert-icon">check_circle</i>
+                <span class="alert-text"><?php echo $success; ?></span>
+              </div>
+              <button type="button" class="alert-close" onclick="this.parentElement.style.display='none';">
+                <i class="material-icons">close</i>
+              </button>
+            </div>
+          <?php endif; ?>
+
+          <form method="POST" action="">
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentname" placeholder=" " value="Sick Leave" required>
-              <label for="departmentname">Leave Type</label>
+              <input type="text" class="form-control" id="leave_type" name="leave_type" 
+                     placeholder=" " value="<?php echo htmlentities($leaveType['LeaveType']); ?>" required>
+              <label for="leave_type">Leave Type</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentshortname" placeholder=" " value="Leave granted for illness or health issues." required>
-              <label for="departmentshortname">Description</label>
+              <input type="text" class="form-control" id="description" name="description" 
+                     placeholder=" " value="<?php echo htmlentities($leaveType['Description']); ?>" required>
+              <label for="description">Description</label>
             </div>
 
-             
-             <div class="form-group mb-4 position-relative">
-               <input type="number" class="form-control" id="max_allowed" name="max_allowed" placeholder=" " value="12" min="1" required>
-               <label for="max_allowed">Maximum Times Allowed</label>
-             </div>
+            <div class="form-group mb-4 position-relative">
+              <input type="number" class="form-control" id="max_allowed" name="max_allowed" 
+                     placeholder=" " value="<?php echo htmlentities($leaveType['max']); ?>" min="1" required>
+              <label for="max_allowed">Maximum Times Allowed</label>
+            </div>
 
 
 
