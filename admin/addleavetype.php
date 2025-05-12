@@ -47,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($query->execute()) {
             $success = "Leave type added successfully";
+            // Redirect to the same page to prevent form resubmission
+                header("Location: addleavetype.php");
+                exit();
         } else {
             throw new Exception("Something went wrong. Please try again");
         }
@@ -368,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
           <?php } ?>
 
-          <form method="POST" action="">
+          <form method="POST" autocomplete="off" action="">
             <div class="form-group mb-4 position-relative">
               <input type="text" class="form-control" id="leave_type" name="leave_type" placeholder=" " 
                      value="<?php echo isset($_POST['leave_type']) ? htmlentities($_POST['leave_type']) : ''; ?>" required>
