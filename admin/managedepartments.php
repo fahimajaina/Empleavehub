@@ -1,3 +1,61 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Handle department deletion
+if (isset($_GET['del'])) {
+    $deptId = intval($_GET['del']);
+    
+    // First check if any employees are assigned to this department
+    $checkSql = "SELECT COUNT(*) as empCount FROM tblemployees WHERE Department = :deptId";
+    $checkStmt = $dbh->prepare($checkSql);
+    $checkStmt->bindParam(':deptId', $deptId, PDO::PARAM_INT);
+    $checkStmt->execute();
+    $empCount = $checkStmt->fetch(PDO::FETCH_ASSOC)['empCount'];
+    
+    if ($empCount > 0) {
+        $_SESSION['error'] = "Department cannot be deleted. There are employees assigned to it.";
+    } else {
+        // No employees assigned, safe to delete
+        $sql = "DELETE FROM tbldepartments WHERE id=:deptId";
+        $stmt = $dbh->prepare($sql);
+        $stmt->bindParam(':deptId', $deptId, PDO::PARAM_INT);
+        
+        if ($stmt->execute()) {
+            $_SESSION['msg'] = "Department deleted successfully";
+        } else {
+            $_SESSION['error'] = "Error deleting department";
+        }
+    }
+    header("Location: managedepartments.php");
+    exit();
+}
+
+// Fetch all departments
+try {
+    $sql = "SELECT * FROM tbldepartments ORDER BY DepartmentName ASC";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $_SESSION['error'] = "Error: " . $e->getMessage();
+    $departments = [];
+}
+
+// Get messages from session
+$error = isset($_SESSION['error']) ? $_SESSION['error'] : null;
+$success = isset($_SESSION['success']) ? $_SESSION['success'] : null;
+unset($_SESSION['error'], $_SESSION['success']); // Clear messages after retrieving
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -264,10 +322,34 @@
     <i class="material-icons me-2" style="color: #7AC6D2;">apartment</i> Manage Departments
   </h2>
 
+  <?php 
+  // Display Messages
+  if(isset($_SESSION['error'])) {
+      echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
+              '.$_SESSION['error'].'
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>';
+      unset($_SESSION['error']);
+  }
+  if(isset($_SESSION['msg'])) {
+      echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
+              '.$_SESSION['msg'].'
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>';
+      unset($_SESSION['msg']);
+  }
+
+  // Fetch Departments
+  $sql = "SELECT * FROM tbldepartments ORDER BY DepartmentName ASC";
+  $query = $dbh->prepare($sql);
+  $query->execute();
+  $departments = $query->fetchAll(PDO::FETCH_OBJ);
+  ?>
+
   <div class="card p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h4 class="mb-0">Departments Info</h4>
-      <input type="text" class="form-control w-25 search-input" placeholder="Search...">
+      <input type="text" class="form-control w-25 search-input" id="searchInput" placeholder="Search departments...">
     </div>
 
     <div class="table-responsive">
@@ -283,64 +365,57 @@
           </tr>
         </thead>
         <tbody>
+          <?php 
+          if($query->rowCount() > 0) {
+              $cnt = 1;
+              foreach($departments as $dept) {
+          ?>
           <tr>
-            <td>1</td>
-            <td>Human Resource</td>
-            <td>HR</td>
-            <td>HR01</td>
-            <td>2023-09-01 20:50</td>
+            <td><?php echo htmlentities($cnt);?></td>
+            <td><?php echo htmlentities($dept->DepartmentName);?></td>
+            <td><?php echo htmlentities($dept->DepartmentShortName);?></td>
+            <td><?php echo htmlentities($dept->DepartmentCode);?></td>
+            <td><?php echo htmlentities($dept->CreationDate);?></td>
             <td>
-            <a href="editdepartment.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
+              <a href="editdepartment.php?id=<?php echo htmlentities($dept->id);?>" class="btn btn-view btn-action me-1">Edit</a>
+              <a href="managedepartments.php?del=<?php echo htmlentities($dept->id);?>" class="btn btn-danger btn-action" 
+                 onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
             </td>
           </tr>
+          <?php 
+              $cnt++;
+              }
+          } else { ?>
           <tr>
-            <td>2</td>
-            <td>Information Technology</td>
-            <td>IT</td>
-            <td>IT01</td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editdepartment.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
-            </td>
+              <td colspan="6" class="text-center">No departments found</td>
           </tr>
-          <tr>
-            <td>3</td>
-            <td>Accounts</td>
-            <td>Accounts</td>
-            <td>ACCNT01</td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editdepartment.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
-            </td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td>Admin</td>
-            <td>Admin</td>
-            <td>ADMN01</td>
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editdepartment.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
-            </td>
-          </tr>
+          <?php } ?>
         </tbody>
       </table>
     </div>
 
-    <p class="text-muted mt-3">Showing 1 to 4 of 4 entries</p>
+    <p class="text-muted mt-3">Showing <?php echo $query->rowCount();?> entries</p>
   </div>
 </div>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  // Toggle sidebar
   document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('mainContent').classList.toggle('collapsed');
+  });
+
+  // Search functionality
+  document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchValue = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('table tbody tr');
+    
+    tableRows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchValue) ? '' : 'none';
+    });
   });
 </script>
 </body>
