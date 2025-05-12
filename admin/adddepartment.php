@@ -1,6 +1,8 @@
 <?php
+session_start();
 require_once("includes/config.php");
 
+// Handle form submission
 if(isset($_POST['add'])) {
     try {
         $deptname = $_POST['departmentname'];
@@ -21,12 +23,13 @@ if(isset($_POST['add'])) {
             $query->bindParam(':deptname', $deptname, PDO::PARAM_STR);
             $query->bindParam(':deptshortname', $deptshortname, PDO::PARAM_STR);
             $query->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
-            
             $query->execute();
-            $lastInsertId = $dbh->lastInsertId();
             
-            if($lastInsertId) {
-                $msg = "Department added successfully";
+            if($query->rowCount() > 0) {
+                $_SESSION['success_msg'] = "Department added successfully";
+                // Redirect to the same page to prevent form resubmission
+                header("Location: adddepartment.php");
+                exit();
             } else {
                 $error = "Something went wrong. Please try again";
             }
@@ -34,6 +37,12 @@ if(isset($_POST['add'])) {
     } catch(PDOException $e) {
         $error = "Error: " . $e->getMessage();
     }
+}
+
+// Get message from session if exists
+if(isset($_SESSION['success_msg'])) {
+    $msg = $_SESSION['success_msg'];
+    unset($_SESSION['success_msg']); // Clear the message after displaying
 }
 ?>
 <!DOCTYPE html>
@@ -346,26 +355,24 @@ if(isset($_POST['add'])) {
               <?php echo htmlentities($msg); ?>
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
-          <?php endif; ?>
-
-          <form method="POST">
+          <?php endif; ?>          <form method="POST" autocomplete="off">
             <div class="form-group mb-4 position-relative">
               <input type="text" class="form-control" name="departmentname" id="departmentname" 
-                     value="<?php echo isset($_POST['departmentname']) ? htmlentities($_POST['departmentname']) : ''; ?>" 
+                     value="<?php echo isset($error) ? htmlentities($_POST['departmentname']) : ''; ?>" 
                      placeholder=" " required>
               <label for="departmentname">Department Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
               <input type="text" class="form-control" name="departmentshortname" id="departmentshortname" 
-                     value="<?php echo isset($_POST['departmentshortname']) ? htmlentities($_POST['departmentshortname']) : ''; ?>" 
+                     value="<?php echo isset($error) ? htmlentities($_POST['departmentshortname']) : ''; ?>" 
                      placeholder=" " required>
               <label for="departmentshortname">Department Short Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
               <input type="text" class="form-control" name="deptcode" id="deptcode" 
-                     value="<?php echo isset($_POST['deptcode']) ? htmlentities($_POST['deptcode']) : ''; ?>" 
+                     value="<?php echo isset($error) ? htmlentities($_POST['deptcode']) : ''; ?>" 
                      placeholder=" " required>
               <label for="deptcode">Department Code</label>
             </div>
@@ -383,9 +390,17 @@ if(isset($_POST['add'])) {
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  // Handle sidebar toggle
   document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('mainContent').classList.toggle('collapsed');
+  });
+  // Handle sidebar toggle only
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('menu-toggle').addEventListener('click', function () {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+      document.getElementById('mainContent').classList.toggle('collapsed');
+    });
   });
 </script>
 
