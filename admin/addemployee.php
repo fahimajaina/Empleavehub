@@ -1,3 +1,157 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+
+// Function to generate unique employee ID
+function generateEmpId($dbh) {
+    $prefix = "EMP";
+    $year = date("y");
+    
+    // Get the last employee ID from database
+    $stmt = $dbh->query("SELECT MAX(CAST(SUBSTRING(EmpId, 6) AS UNSIGNED)) as max_num FROM tblemployees WHERE EmpId LIKE 'EMP{$year}%'");
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $next_num = ($result['max_num'] ?? 0) + 1;
+    return $prefix . $year . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+}
+
+// Function to validate name
+function validateName($name) {
+    return preg_match("/^[a-zA-Z ]{2,50}$/", $name);
+}
+
+// Function to validate phone number
+function validatePhone($phone) {
+    return preg_match("/^[0-9]{10,11}$/", $phone);
+}
+
+// Function to validate password strength
+function validatePassword($password) {
+    // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+    return strlen($password) >= 8 && 
+           preg_match("/[A-Z]/", $password) && 
+           preg_match("/[a-z]/", $password) && 
+           preg_match("/[0-9]/", $password);
+}
+
+// Handle form submission
+if (isset($_POST['add'])) {
+    try {
+        // Get and sanitize form data
+        $empId = generateEmpId($dbh);
+        $fname = trim($_POST['firstName']);
+        $lname = trim($_POST['lastName']);
+        $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
+        $password = trim($_POST['password']);
+        $confirmpassword = trim($_POST['confirmpassword']);
+        $gender = trim($_POST['gender']);
+        $dob = $_POST['dob'];
+        $department = trim($_POST['department']);
+        $address = trim($_POST['address']);
+        $city = trim($_POST['city']);
+        $country = trim($_POST['country']);
+        $mobileno = trim($_POST['mobileno']);
+
+        // Validate first name and last name
+        if (!validateName($fname)) {
+            throw new Exception("First name should only contain letters and be between 2-50 characters");
+        }
+        if (!validateName($lname)) {
+            throw new Exception("Last name should only contain letters and be between 2-50 characters");
+        }
+
+        // Validate email format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new Exception("Invalid email format");
+        }
+
+        // Check if email already exists
+        $stmt = $dbh->prepare("SELECT COUNT(*) FROM tblemployees WHERE EmailId = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception("Email already exists");
+        }
+
+        // Validate phone number
+        if (!validatePhone($mobileno)) {
+            throw new Exception("Invalid phone number format. Must be 10-11 digits");
+        }
+
+        // Validate password
+        if (!validatePassword($password)) {
+            throw new Exception("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
+        }
+
+        // Check if passwords match
+        if ($password !== $confirmpassword) {
+            throw new Exception("Passwords do not match");
+        }
+
+        // Validate DOB (must be at least 18 years old)
+        $dob_date = new DateTime($dob);
+        $today = new DateTime();
+        $age = $today->diff($dob_date)->y;
+        if ($age < 18) {
+            throw new Exception("Employee must be at least 18 years old");
+        }
+
+        // Hash password
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+        // Insert employee data
+        $sql = "INSERT INTO tblemployees (EmpId, FirstName, LastName, EmailId, Password, Gender, Dob, Department, Address, City, Country, Phonenumber) 
+                VALUES (:empid, :fname, :lname, :email, :password, :gender, :dob, :department, :address, :city, :country, :mobile)";
+        
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':empid', $empId, PDO::PARAM_STR);
+        $query->bindParam(':fname', $fname, PDO::PARAM_STR);
+        $query->bindParam(':lname', $lname, PDO::PARAM_STR);
+        $query->bindParam(':email', $email, PDO::PARAM_STR);
+        $query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
+        $query->bindParam(':gender', $gender, PDO::PARAM_STR);
+        $query->bindParam(':dob', $dob, PDO::PARAM_STR);
+        $query->bindParam(':department', $department, PDO::PARAM_INT);
+        $query->bindParam(':address', $address, PDO::PARAM_STR);
+        $query->bindParam(':city', $city, PDO::PARAM_STR);
+        $query->bindParam(':country', $country, PDO::PARAM_STR);
+        $query->bindParam(':mobile', $mobileno, PDO::PARAM_STR);
+
+        $query->execute();
+        
+        if ($query->rowCount() > 0) {
+            $_SESSION['success'] = "Employee added successfully. Employee ID: " . $empId;
+            header("Location: manageemployee.php");
+            exit();
+        } else {
+            throw new Exception("Something went wrong while adding employee");
+        }
+        
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// Fetch departments for dropdown
+try {
+    $stmt = $dbh->query("SELECT id, DepartmentName FROM tbldepartments ORDER BY DepartmentName");
+    $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error fetching departments: " . $e->getMessage();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -258,22 +412,28 @@
 <div class="main-content" id="main-content">
   <h4 class="mb-4 heading-colored"><span class="material-icons me-2">edit</span> Add employee</h4>
 
-  <form class="form-section">
+  <?php if ($error): ?>
+    <div class="alert alert-danger"><?php echo $error; ?></div>
+  <?php endif; ?>
+  <?php if ($success): ?>
+    <div class="alert alert-success"><?php echo $success; ?></div>
+  <?php endif; ?>
+
+  <form class="form-section" method="POST" onsubmit="return validateForm();">
     <h5 class="mb-4 heading-colored">Employee Info</h5>
 
-  <form class="form-section">
     <div class="row g-4">
       <div class="col-md-6">
         <label for="empcode" class="form-label">Employee Code(Must be unique)</label>
-        <input type="text" class="form-control" name="empcode" id="empcode" value="" autocomplete="off" readonly required>
+        <input type="text" class="form-control" name="empcode" id="empcode" value="<?php echo generateEmpId($dbh); ?>" readonly required>
       </div>
       <div class="col-md-6">
         <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" name="email" value="" readonly autocomplete="off" required>
+        <input type="email" class="form-control" id="email" name="email" value="" autocomplete="off" required>
       </div>
       <div class="col-md-6">
         <label for="firstName" class="form-label">First Name</label>
-        <input type="text" class="form-control" id="firstName" name="firstName" value="" required>
+        <input type="text" class="form-control" id="firstName" name="firstName" value="" autocomplete="off" required>
       </div>
       <div class="col-md-6">
         <label for="lastName" class="form-label">Last Name</label>
@@ -298,10 +458,9 @@
       <div class="col-md-6">
         <label for="department" class="form-label">Department</label>
         <select class="form-select" id="department" name="department" required>
-          <option>IT</option>
-          <option>HR</option>
-          <option>Finance</option>
-          <option>Marketing</option>
+          <?php foreach ($departments as $dept): ?>
+            <option value="<?php echo $dept['id']; ?>"><?php echo $dept['DepartmentName']; ?></option>
+          <?php endforeach; ?>
         </select>
       </div>
       <div class="col-md-6">
@@ -325,7 +484,7 @@
         <input type="password" class="form-control" id="confirm" name="confirmpassword" value="" autocomplete="off" required>
       </div>
       <div class="col-12 mt-3">
-        <button type="submit" name="add"  id="add" class="btn btn-custom w-100" onclick="return valid();">Add</button>
+        <button type="submit" name="add" id="add" class="btn btn-custom w-100">Add</button>
       </div>
     </div>
   </form>
@@ -334,22 +493,84 @@
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-
-function valid() {
-    const Password = document.getElementById('password').value;
+function validateForm() {
+    // Get form values
+    const firstName = document.getElementById('firstName').value.trim();
+    const lastName = document.getElementById('lastName').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm').value;
+    const dob = document.getElementById('birthdate').value;
 
-    if (Password !== confirmPassword) {
-      alert(" Password and Confirm Password do not match.");
-      return false;
+    // Name validation
+    const nameRegex = /^[a-zA-Z ]{2,50}$/;
+    if (!nameRegex.test(firstName)) {
+        alert("First name should only contain letters and be between 2-50 characters");
+        return false;
     }
-    return true;
-  }
+    if (!nameRegex.test(lastName)) {
+        alert("Last name should only contain letters and be between 2-50 characters");
+        return false;
+    }
 
-  document.getElementById('menu-toggle').addEventListener('click', function () {
+    // Email validation
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        alert("Please enter a valid email address");
+        return false;
+    }
+
+    // Phone validation
+    const phoneRegex = /^[0-9]{10,11}$/;
+    if (!phoneRegex.test(phone)) {
+        alert("Phone number must be 10-11 digits");
+        return false;
+    }
+
+    // Password validation
+    if (password.length < 8) {
+        alert("Password must be at least 8 characters long");
+        return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+        alert("Password must contain at least one uppercase letter");
+        return false;
+    }
+    if (!/[a-z]/.test(password)) {
+        alert("Password must contain at least one lowercase letter");
+        return false;
+    }
+    if (!/[0-9]/.test(password)) {
+        alert("Password must contain at least one number");
+        return false;
+    }
+
+    // Password match
+    if (password !== confirmPassword) {
+        alert("Passwords do not match");
+        return false;
+    }
+
+    // Age validation (must be 18+)
+    const dobDate = new Date(dob);
+    const today = new Date();
+    const age = today.getFullYear() - dobDate.getFullYear();
+    const monthDiff = today.getMonth() - dobDate.getMonth();
+    
+    if (age < 18 || (age === 18 && monthDiff < 0)) {
+        alert("Employee must be at least 18 years old");
+        return false;
+    }
+
+    return true;
+}
+
+// Toggle sidebar
+document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('main-content').classList.toggle('collapsed');
-  });
+});
 </script>
 </body>
 </html>
