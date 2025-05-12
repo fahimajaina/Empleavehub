@@ -70,7 +70,7 @@ CREATE TABLE `tblemployees` (
   `Password` varchar(255) NOT NULL,
   `Gender` enum('Male','Female','Other') NOT NULL,
   `Dob` date NOT NULL,
-  `Department` varchar(255) NOT NULL,
+  `Department` int(11) NOT NULL,
   `Address` varchar(255) NOT NULL,
   `City` varchar(200) NOT NULL,
   `Country` varchar(150) NOT NULL,
@@ -129,7 +129,9 @@ ALTER TABLE `admin`
 --
 ALTER TABLE `tbldepartments`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `DepartmentCode` (`DepartmentCode`);
+  ADD UNIQUE KEY `DepartmentCode` (`DepartmentCode`),
+  ADD UNIQUE KEY `DepartmentName` (`DepartmentName`),
+  ADD UNIQUE KEY `DepartmentShortName` (`DepartmentShortName`);
 
 --
 -- Indexes for table `tblemployees`
@@ -137,7 +139,8 @@ ALTER TABLE `tbldepartments`
 ALTER TABLE `tblemployees`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `EmpId` (`EmpId`),
-  ADD UNIQUE KEY `EmailId` (`EmailId`);
+  ADD UNIQUE KEY `EmailId` (`EmailId`),
+  ADD KEY `Department` (`Department`);
 
 --
 -- Indexes for table `tblleaves`
@@ -197,6 +200,9 @@ ALTER TABLE `tblleavetype`
 ALTER TABLE `tblleaves`
   ADD CONSTRAINT `tblleaves_ibfk_1` FOREIGN KEY (`empid`) REFERENCES `tblemployees` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `tblleaves_ibfk_2` FOREIGN KEY (`LeaveTypeID`) REFERENCES `tblleavetype` (`id`) ON DELETE CASCADE;
+
+ALTER TABLE `tblemployees`
+  ADD CONSTRAINT `tblemployees_ibfk_1` FOREIGN KEY (`Department`) REFERENCES `tbldepartments` (`id`) ON DELETE RESTRICT;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
