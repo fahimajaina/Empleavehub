@@ -1,3 +1,41 @@
+<?php
+require_once("includes/config.php");
+
+if(isset($_POST['add'])) {
+    try {
+        $deptname = $_POST['departmentname'];
+        $deptshortname = $_POST['departmentshortname'];
+        $deptcode = $_POST['deptcode'];
+
+        // Check if department code already exists
+        $stmt = $dbh->prepare("SELECT COUNT(*) FROM tbldepartments WHERE DepartmentCode = ?");
+        $stmt->execute([$deptcode]);
+        if($stmt->fetchColumn() > 0) {
+            $error = "Department code already exists";
+        } else {
+            // Insert department
+            $sql = "INSERT INTO tbldepartments (DepartmentName, DepartmentShortName, DepartmentCode) 
+                    VALUES (:deptname, :deptshortname, :deptcode)";
+            
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':deptname', $deptname, PDO::PARAM_STR);
+            $query->bindParam(':deptshortname', $deptshortname, PDO::PARAM_STR);
+            $query->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
+            
+            $query->execute();
+            $lastInsertId = $dbh->lastInsertId();
+            
+            if($lastInsertId) {
+                $msg = "Department added successfully";
+            } else {
+                $error = "Something went wrong. Please try again";
+            }
+        }
+    } catch(PDOException $e) {
+        $error = "Error: " . $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -296,24 +334,44 @@
         <div class="card shadow-sm">
           <h3 class="text-heading mb-4">Add Department</h3>
 
-          <form>
+          <?php if(isset($error)): ?>
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+              <?php echo htmlentities($error); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <?php endif; ?>
+
+          <?php if(isset($msg)): ?>
+            <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+              <?php echo htmlentities($msg); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <?php endif; ?>
+
+          <form method="POST">
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentname" placeholder=" " required>
+              <input type="text" class="form-control" name="departmentname" id="departmentname" 
+                     value="<?php echo isset($_POST['departmentname']) ? htmlentities($_POST['departmentname']) : ''; ?>" 
+                     placeholder=" " required>
               <label for="departmentname">Department Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentshortname" placeholder=" " required>
+              <input type="text" class="form-control" name="departmentshortname" id="departmentshortname" 
+                     value="<?php echo isset($_POST['departmentshortname']) ? htmlentities($_POST['departmentshortname']) : ''; ?>" 
+                     placeholder=" " required>
               <label for="departmentshortname">Department Short Name</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="deptcode" placeholder=" " required>
+              <input type="text" class="form-control" name="deptcode" id="deptcode" 
+                     value="<?php echo isset($_POST['deptcode']) ? htmlentities($_POST['deptcode']) : ''; ?>" 
+                     placeholder=" " required>
               <label for="deptcode">Department Code</label>
             </div>
 
             <div class="form-group mb-0">
-              <button type="submit" class="custom-btn">Add Department</button>
+              <button type="submit" name="add" class="custom-btn">Add Department</button>
             </div>
           </form>
         </div>
