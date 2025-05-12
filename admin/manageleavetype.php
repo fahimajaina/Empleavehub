@@ -1,3 +1,58 @@
+<?php
+session_start();
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+$error = '';
+$success = '';
+
+// Handle leave type deletion
+if (isset($_GET['del'])) {
+    try {
+        $id = intval($_GET['del']);
+        
+        // Check if leave type is used in any leaves
+        $checkSql = "SELECT COUNT(*) FROM tblleaves WHERE LeaveTypeID = :id";
+        $checkStmt = $dbh->prepare($checkSql);
+        $checkStmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $checkStmt->execute();
+        
+        if ($checkStmt->fetchColumn() > 0) {
+            $error = "Cannot delete this leave type as it is being used by employees";
+        } else {
+            // Safe to delete
+            $sql = "DELETE FROM tblleavetype WHERE id = :id";
+            $stmt = $dbh->prepare($sql);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            
+            if ($stmt->execute()) {
+                $success = "Leave type deleted successfully";
+            } else {
+                $error = "Error deleting leave type";
+            }
+        }
+    } catch (PDOException $e) {
+        $error = "Database Error: " . $e->getMessage();
+    }
+}
+
+// Fetch all leave types
+try {
+    $sql = "SELECT * FROM tblleavetype ORDER BY LeaveType ASC";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $leaveTypes = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error fetching leave types: " . $e->getMessage();
+    $leaveTypes = [];
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -256,12 +311,17 @@
   </h2>
 
   <div class="card p-4">
+    <?php if ($error): ?>
+      <div class="alert alert-danger"><?php echo $error; ?></div>
+    <?php endif; ?>
+    <?php if ($success): ?>
+      <div class="alert alert-success"><?php echo $success; ?></div>
+    <?php endif; ?>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h4 class="mb-0">Leave Type Info</h4>
       <input type="text" class="form-control w-25 search-input" placeholder="Search...">
-    </div>
-
-    <div class="table-responsive">
+    </div>    <div class="table-responsive">
       <table class="table align-middle text-center">
         <thead>
           <tr>
@@ -274,55 +334,37 @@
           </tr>
         </thead>
         <tbody>
+          <?php 
+          if (count($leaveTypes) > 0) {
+              $cnt = 1;
+              foreach($leaveTypes as $type) {
+          ?>
           <tr>
-            <td>1</td>
-            <td>Casual Leaves</td>
-            <td>if anyone want to take leave casually</td>
-            <td>12</td> 
-            <td>2023-09-01 20:50</td>
+            <td><?php echo htmlentities($cnt);?></td>
+            <td><?php echo htmlentities($type['LeaveType']);?></td>
+            <td><?php echo htmlentities($type['Description']);?></td>
+            <td><?php echo htmlentities($type['max']);?></td>
+            <td><?php echo date('Y-m-d H:i', strtotime($type['CreationDate']));?></td>
             <td>
-            <a href="editleavetype.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this leave type?');">Delete</a>
+              <a href="editleavetype.php?id=<?php echo htmlentities($type['id']);?>" class="btn btn-view btn-action me-1">Edit</a>
+              <a href="manageleavetype.php?del=<?php echo htmlentities($type['id']);?>" class="btn btn-danger btn-action" 
+                 onclick="return confirm('Are you sure you want to delete this leave type?');">Delete</a>
             </td>
           </tr>
+          <?php 
+              $cnt++;
+              }
+          } else { 
+          ?>
           <tr>
-            <td>2</td>
-            <td>Earned Leaves</td>
-            <td>Earned Leaves</td>
-            <td>30</td> 
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editleavetype.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this leave type?');">Delete</a>
-            </td>
+            <td colspan="6" class="text-center">No leave types found</td>
           </tr>
-          <tr>
-            <td>3</td>
-            <td>Sick Leaves</td>
-            <td>Sick Leaves</td>
-            <td>15</td> 
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editleavetype.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this leave type?');">Delete</a>
-            </td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td>RH (Restricted Leaves)</td>
-            <td>Restricted Leaves</td>
-            <td>2</td> 
-            <td>2023-09-01 20:50</td>
-            <td>
-            <a href="editleavetype.php?id=1" class="btn btn-view btn-action me-1">Edit</a>
-            <a href="manageleavetype.php?id=1" class="btn btn-danger btn-action" onclick="return confirm('Are you sure you want to delete this leave type?');">Delete</a>
-            </td>
-          </tr>
+          <?php } ?>
         </tbody>
       </table>
     </div>
 
-    <p class="text-muted mt-3">Showing 1 to 4 of 4 entries</p>
+    <p class="text-muted mt-3">Showing <?php echo count($leaveTypes); ?> entries</p>
   </div>
 </div>
 
@@ -332,6 +374,17 @@
   document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('mainContent').classList.toggle('collapsed');
+  });
+
+  // Search functionality
+  document.querySelector('.search-input').addEventListener('keyup', function() {
+    let searchText = this.value.toLowerCase();
+    let tableRows = document.querySelectorAll('.table tbody tr');
+    
+    tableRows.forEach(row => {
+      let text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchText) ? '' : 'none';
+    });
   });
 </script>
 </body>
