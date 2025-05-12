@@ -1,3 +1,60 @@
+<?php
+session_start();
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+$error = '';
+$success = '';
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        // Get and sanitize form data
+        $leaveType = trim($_POST['leave_type']);
+        $description = trim($_POST['description']);
+        $maxAllowed = intval($_POST['max_allowed']);
+
+        // Validate input
+        if (empty($leaveType)) {
+            throw new Exception("Leave type name is required");
+        }
+        if (empty($description)) {
+            throw new Exception("Description is required");
+        }
+        if ($maxAllowed <= 0) {
+            throw new Exception("Maximum times allowed must be greater than 0");
+        }
+
+        // Check if leave type already exists
+        $sql = "SELECT id FROM tblleavetype WHERE LeaveType = :leaveType";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':leaveType', $leaveType, PDO::PARAM_STR);
+        $query->execute();
+        
+        if ($query->rowCount() > 0) {
+            throw new Exception("This leave type already exists");
+        }        // Insert new leave type
+        $sql = "INSERT INTO tblleavetype (LeaveType, Description, max) VALUES (:leaveType, :description, :maxAllowed)";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':leaveType', $leaveType, PDO::PARAM_STR);
+        $query->bindParam(':description', $description, PDO::PARAM_STR);
+        $query->bindParam(':maxAllowed', $maxAllowed, PDO::PARAM_INT);
+        
+        if ($query->execute()) {
+            $success = "Leave type added successfully";
+        } else {
+            throw new Exception("Something went wrong. Please try again");
+        }
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -297,26 +354,41 @@
         <div class="card shadow-sm">
           <h3 class="text-heading mb-4">Add Leave Type</h3>
 
-          <form>
+          <?php if ($error) { ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              <?php echo htmlentities($error); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <?php } ?>
+
+          <?php if ($success) { ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              <?php echo htmlentities($success); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <?php } ?>
+
+          <form method="POST" action="">
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentname" placeholder=" " required>
-              <label for="departmentname">Leave Type</label>
+              <input type="text" class="form-control" id="leave_type" name="leave_type" placeholder=" " 
+                     value="<?php echo isset($_POST['leave_type']) ? htmlentities($_POST['leave_type']) : ''; ?>" required>
+              <label for="leave_type">Leave Type</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="text" class="form-control" id="departmentshortname" placeholder=" " required>
-              <label for="departmentshortname">Description</label>
+              <input type="text" class="form-control" id="description" name="description" placeholder=" "
+                     value="<?php echo isset($_POST['description']) ? htmlentities($_POST['description']) : ''; ?>" required>
+              <label for="description">Description</label>
             </div>
 
-            
-             <div class="form-group mb-4 position-relative">
-               <input type="number" class="form-control" id="max_allowed" name="max_allowed" placeholder=" " min="1" required>
-               <label for="max_allowed">Maximum Times Allowed</label>
-             </div>
-
+            <div class="form-group mb-4 position-relative">
+              <input type="number" class="form-control" id="max_allowed" name="max_allowed" placeholder=" " min="1" 
+                     value="<?php echo isset($_POST['max_allowed']) ? intval($_POST['max_allowed']) : ''; ?>" required>
+              <label for="max_allowed">Maximum Times Allowed</label>
+            </div>
 
             <div class="form-group mb-0">
-              <button type="submit" class="custom-btn">Add</button>
+              <button type="submit" class="custom-btn">Add Leave Type</button>
             </div>
           </form>
         </div>
