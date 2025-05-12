@@ -1,3 +1,59 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('include/config.php');
+
+// Initialize error variable
+$error = '';
+
+// Check if form is submitted
+if (isset($_POST['signin'])) {
+    // Get and sanitize user input
+    $username = trim($_POST['username']);
+    $password = $_POST['password'];
+
+    try {
+        // Validate email format
+        if (!filter_var($username, FILTER_VALIDATE_EMAIL)) {
+            $error = "Please enter a valid email address";
+        } else {
+            // Check if email exists and get user details
+            $sql = "SELECT * FROM tblemployees WHERE EmailId = :username";
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':username', $username, PDO::PARAM_STR);
+            $query->execute();
+            
+            if ($query->rowCount() > 0) {
+                $result = $query->fetch(PDO::FETCH_ASSOC);
+                
+                // Verify password
+                if (password_verify($password, $result['Password'])) {
+                    // Check if employee is active
+                    if ($result['Status'] == 1) {
+                        // Set session variables
+                        $_SESSION['eid'] = $result['id'];
+                        $_SESSION['emplogin'] = $username;
+                        
+                        // Redirect to dashboard
+                        header('location: dashboard.php');
+                        exit();
+                    } else {
+                        $error = "Your account is currently inactive. Please contact the administrator.";
+                    }
+                } else {
+                    $error = "Invalid password. Please try again.";
+                }
+            } else {
+                $error = "Email address not found.";
+            }
+        }
+    } catch (PDOException $e) {
+        $error = "Database Error: " . $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,6 +162,14 @@
 
   <div class="card">
     <h5><span class="material-icons">login</span> Employee Login</h5>
+    
+    <?php if (!empty($error)): ?>
+    <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+        <?php echo htmlspecialchars($error); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <?php endif; ?>
+
     <form method="post" name="signin">
       <div class="mb-3 input-group">
         <span class="input-group-text border-end-0">
