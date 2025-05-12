@@ -2,6 +2,12 @@
 session_start();
 require_once("includes/config.php");
 
+// Check if admin is logged in
+if(!isset($_SESSION['alogin']) || empty($_SESSION['alogin'])) {
+    header('Location: index.php');
+    exit();
+}
+
 // Handle form submission
 if(isset($_POST['add'])) {
     try {
