@@ -1,3 +1,88 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+
+// Handle form submission
+if (isset($_POST['change'])) {
+    try {
+        // Get and sanitize user input
+        $currentPassword = trim($_POST['currentPassword']);
+        $newPassword = trim($_POST['newPassword']);
+        $confirmPassword = trim($_POST['confirmPassword']);
+        $username = $_SESSION['alogin'];
+
+        // Validate password fields are not empty
+        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            throw new Exception("All password fields are required");
+        }        // Validate new password requirements
+        if (strlen($newPassword) < 6) {
+            throw new Exception("Password must be at least 6 characters long");
+        }
+        
+        // Check for uppercase, lowercase and number
+        if (!preg_match('/[A-Z]/', $newPassword)) {
+            throw new Exception("Password must contain at least one uppercase letter");
+        }
+        if (!preg_match('/[a-z]/', $newPassword)) {
+            throw new Exception("Password must contain at least one lowercase letter");
+        }
+        if (!preg_match('/[0-9]/', $newPassword)) {
+            throw new Exception("Password must contain at least one number");
+        }
+
+        // Validate new password and confirm password match
+        if ($newPassword !== $confirmPassword) {
+            throw new Exception("New password and confirm password do not match");
+        }
+
+        // Get admin's current password from database
+        $sql = "SELECT Password FROM admin WHERE UserName = :username";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':username', $username, PDO::PARAM_STR);
+        $query->execute();
+        $result = $query->fetch(PDO::FETCH_ASSOC);
+
+        // Verify current password
+        if (!password_verify($currentPassword, $result['Password'])) {
+            throw new Exception("Current password is incorrect");
+        }
+
+        // Hash new password
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // Update password in database
+        $sql = "UPDATE admin SET Password = :password WHERE UserName = :username";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
+        $query->bindParam(':username', $username, PDO::PARAM_STR);
+
+        if ($query->execute()) {
+            $success = "Password changed successfully";
+            
+            // Clear form data
+            $_POST = array();
+        } else {
+            throw new Exception("Error updating password");
+        }
+
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -299,29 +384,44 @@
         <div class="card shadow-sm">
           <h3 class="text-heading mb-4">Change Password</h3>
 
-          <!-- Example Message -->
-          <!-- <div class="succWrap">Password changed successfully!</div> -->
-          <!-- <div class="errorWrap">Current password is incorrect.</div> -->
+          <?php if (!empty($error)): ?>
+          <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+              <?php echo htmlspecialchars($error); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          <?php endif; ?>
 
-          <form>
+          <?php if (!empty($success)): ?>
+          <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+              <?php echo htmlspecialchars($success); ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          <?php endif; ?>
+
+          <form method="POST" onsubmit="return valid();">
             <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="password" placeholder=" " required>
-              <label for="password">Current Password</label>
+              <input type="password" class="form-control" id="currentPassword" name="currentPassword" 
+                     placeholder=" " required value="<?php echo isset($_POST['currentPassword']) ? htmlspecialchars($_POST['currentPassword']) : ''; ?>">
+              <label for="currentPassword">Current Password</label>
+            </div>
+
+            <div class="form-group mb-4 position-relative">              <input type="password" class="form-control" id="newPassword" name="newPassword" 
+                     placeholder=" " required pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}"
+                     title="Must be at least 6 characters long and contain at least one uppercase letter, one lowercase letter, and one number"
+                     value="<?php echo isset($_POST['newPassword']) ? htmlspecialchars($_POST['newPassword']) : ''; ?>">
+              <label for="newPassword">New Password</label>              <small class="form-text text-danger mt-2">
+                Password must be at least 6 characters long and contain at least one uppercase letter, one lowercase letter, and one number.
+              </small>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="newpassword" placeholder=" " required>
-              <label for="newpassword">New Password</label>
+              <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" 
+                     placeholder=" " required value="<?php echo isset($_POST['confirmPassword']) ? htmlspecialchars($_POST['confirmPassword']) : ''; ?>">
+              <label for="confirmPassword">Confirm New Password</label>
             </div>
 
-            <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="confirmpassword" placeholder=" " required>
-              <label for="confirmpassword">Confirm New Password</label>
-            </div>
-
-            <!-- Updated Button -->
             <div class="form-group mb-0">
-              <button type="submit" name="change" class="custom-btn" onclick="return valid();">
+              <button type="submit" name="change" class="custom-btn">
                 Change Password
               </button>
             </div>
@@ -336,16 +436,48 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   function valid() {
-    const newPassword = document.getElementById('newpassword').value;
-    const confirmPassword = document.getElementById('confirmpassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const currentPassword = document.getElementById('currentPassword').value;
 
-    if (newPassword !== confirmPassword) {
-      alert("New Password and Confirm Password do not match.");
+    // Check if passwords are empty
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("All password fields are required");
+      return false;
+    }    // Check password requirements
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters long");
       return false;
     }
+
+    // Check for uppercase letter
+    if (!/[A-Z]/.test(newPassword)) {
+      alert("Password must contain at least one uppercase letter");
+      return false;
+    }
+
+    // Check for lowercase letter
+    if (!/[a-z]/.test(newPassword)) {
+      alert("Password must contain at least one lowercase letter");
+      return false;
+    }
+
+    // Check for number
+    if (!/[0-9]/.test(newPassword)) {
+      alert("Password must contain at least one number");
+      return false;
+    }
+
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      alert("New Password and Confirm Password do not match");
+      return false;
+    }
+
     return true;
   }
 
+  // Sidebar toggle functionality
   document.getElementById('menu-toggle').addEventListener('click', function () {
     document.getElementById('sidebar').classList.toggle('collapsed');
     document.getElementById('mainContent').classList.toggle('collapsed');
