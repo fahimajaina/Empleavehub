@@ -19,7 +19,7 @@ if (isset($_POST['update'])) {
     $lastName = trim($_POST['lastName']);
     $mobileno = trim($_POST['mobileno']);
     $gender = $_POST['gender'];
-    $dob = $_POST['dob'];
+    $dob = trim($_POST['dob']);
     $department = $_POST['department'];
     $address = trim($_POST['address']);
     $city = trim($_POST['city']);
@@ -34,6 +34,22 @@ if (isset($_POST['update'])) {
         $error = "Last Name must contain only letters";
     } elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
         $error = "Mobile number must be 11 digits";
+    } 
+    // Date of birth validation
+      elseif (strtotime($dob) > strtotime('today')) {
+        $error = "Date of Birth cannot be in the future";
+    } elseif (strtotime($dob) > strtotime('-18 years')) {
+        $error = "Employee must be at least 18 years old";
+    } elseif (strtotime($dob) < strtotime('-100 years')) {
+        $error = "Please enter a valid Date of Birth";
+    }
+    // Address validation
+    elseif (strlen($address) < 5) {
+        $error = "Address is too short. Minimum 5 characters required";
+    } elseif (strlen($address) > 200) {
+        $error = "Address is too long. Maximum 200 characters allowed";
+    } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
+        $error = "Address contains invalid characters";
     } else {
         try {
             $sql = "UPDATE tblemployees SET 
