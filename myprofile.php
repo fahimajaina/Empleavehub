@@ -127,12 +127,18 @@ try {
 
 // Fetch departments
 try {
-    $sql = "SELECT DepartmentName FROM tbldepartments WHERE Status = 1 ORDER BY DepartmentName";
+    $sql = "SELECT DepartmentName FROM tbldepartments ORDER BY DepartmentName";
     $query = $dbh->prepare($sql);
     $query->execute();
     $departments = $query->fetchAll(PDO::FETCH_COLUMN);
+    
+    if (empty($departments)) {
+        $error = "No departments found. Please contact your administrator.";
+    }
 } catch (PDOException $e) {
-    $error = "Error fetching departments";
+    error_log("Department fetch error in myprofile.php: " . $e->getMessage());
+    $departments = [];  // Initialize as empty array
+    $error = "Unable to load departments. Please contact your administrator.";
 }
 
 // Get success message from session
