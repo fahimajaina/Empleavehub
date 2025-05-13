@@ -26,7 +26,7 @@ if (isset($_POST['update'])) {
     $country = trim($_POST['country']);
 
     // Validation
-    if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address)) {
+    if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
         $error = "All fields are required";
     } elseif (!preg_match("/^[a-zA-Z\s]+$/", $firstName)) {
         $error = "First Name must contain only letters";
@@ -35,6 +35,17 @@ if (isset($_POST['update'])) {
     } elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
         $error = "Mobile number must be 11 digits";
     } 
+    // Check for duplicate mobile number
+    elseif ($mobileno !== $result->Phonenumber) {
+        $sql = "SELECT COUNT(*) FROM tblemployees WHERE Phonenumber = :mobileno AND id != :eid";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
+        $query->bindParam(':eid', $eid, PDO::PARAM_INT);
+        $query->execute();
+        if ($query->fetchColumn() > 0) {
+            $error = "This mobile number is already registered with another employee";
+        }
+    }
     // Date of birth validation
       elseif (strtotime($dob) > strtotime('today')) {
         $error = "Date of Birth cannot be in the future";
@@ -50,6 +61,18 @@ if (isset($_POST['update'])) {
         $error = "Address is too long. Maximum 200 characters allowed";
     } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
         $error = "Address contains invalid characters";
+    }
+    // City validation
+    elseif (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
+        $error = "City name must contain only letters";
+    } elseif (strlen($city) < 2 || strlen($city) > 50) {
+        $error = "City name must be between 2 and 50 characters";
+    }
+    // Country validation
+    elseif (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
+        $error = "Country name must contain only letters";
+    } elseif (strlen($country) < 2 || strlen($country) > 50) {
+        $error = "Country name must be between 2 and 50 characters";
     } else {
         try {
             $sql = "UPDATE tblemployees SET 
