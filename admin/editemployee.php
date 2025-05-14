@@ -24,6 +24,30 @@ if (!isset($_SESSION['csrf_token'])) {
 $error = '';
 $success = '';
 
+// Fetch employee data first
+try {
+    $sql = "SELECT e.*, d.DepartmentName FROM tblemployees e 
+            LEFT JOIN tbldepartments d ON e.Department = d.id 
+            WHERE e.id=:empid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+    $query->execute();
+    $employee = $query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$employee) {
+        header('location: manageemployee.php');
+        exit();
+    }
+
+    // Fetch departments
+    $sql = "SELECT id, DepartmentName FROM tbldepartments";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = 'Database Error: ' . $e->getMessage();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         $error = 'Invalid CSRF token';
@@ -37,22 +61,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $department = intval($_POST['department']);
         $address = trim($_POST['address']);
         $city = trim($_POST['city']);
-        $country = trim($_POST['country']);
-
-        // Basic validation
-        if (empty($firstName) || !preg_match("/^[a-zA-Z ]*$/", $firstName)) {
-            $error = 'First name should contain only letters';
-        } elseif (empty($lastName) || !preg_match("/^[a-zA-Z ]*$/", $lastName)) {
-            $error = 'Last name should contain only letters';
-        } elseif (empty($mobileno) || !preg_match("/^[0-9]{10,11}$/", $mobileno)) {
-            $error = 'Mobile number should be 10-11 digits';
-        } elseif (empty($dob)) {
-            $error = 'Date of birth is required';
+        $country = trim($_POST['country']);        // Validation
+        if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
+            $error = "All fields are required";
+        } elseif (!preg_match("/^[a-zA-Z\s]+$/", $firstName)) {
+            $error = "First Name must contain only letters";
+        } elseif (!preg_match("/^[a-zA-Z\s]+$/", $lastName)) {
+            $error = "Last Name must contain only letters";
+        } elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
+            $error = "Mobile number must be 11 digits";
+        } 
+        // Check for duplicate mobile number
+        elseif ($mobileno !== $employee['Phonenumber']) {
+            $sql = "SELECT COUNT(*) FROM tblemployees WHERE Phonenumber = :mobileno AND id != :empid";
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
+            $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+            $query->execute();
+            if ($query->fetchColumn() > 0) {
+                $error = "This mobile number is already registered with another employee";
+            }
+        }
+        // Date of birth validation
+        elseif (strtotime($dob) > strtotime('today')) {
+            $error = "Date of Birth cannot be in the future";
+        } elseif (strtotime($dob) > strtotime('-18 years')) {
+            $error = "Employee must be at least 18 years old";
+        } elseif (strtotime($dob) < strtotime('-100 years')) {
+            $error = "Please enter a valid Date of Birth";
+        }
+        // Address validation
+        elseif (strlen($address) < 5) {
+            $error = "Address is too short. Minimum 5 characters required";
+        } elseif (strlen($address) > 200) {
+            $error = "Address is too long. Maximum 200 characters allowed";
+        } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
+            $error = "Address contains invalid characters";
+        }
+        // City validation
+        elseif (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
+            $error = "City name must contain only letters";
+        } elseif (strlen($city) < 2 || strlen($city) > 50) {
+            $error = "City name must be between 2 and 50 characters";
+        }
+        // Country validation
+        elseif (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
+            $error = "Country name must contain only letters";
+        } elseif (strlen($country) < 2 || strlen($country) > 50) {
+            $error = "Country name must be between 2 and 50 characters";
         } else {
-            // Calculate age
-            $birthDate = new DateTime($dob);
-            $today = new DateTime();
-            $age = $birthDate->diff($today)->y;
             
             if ($age < 18) {
                 $error = 'Employee must be at least 18 years old';
@@ -84,33 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (PDOException $e) {
                     $error = 'Database Error: ' . $e->getMessage();
                 }
-            }
-        }
+            }        }
     }
-}
-
-// Fetch employee data
-try {
-    $sql = "SELECT e.*, d.DepartmentName FROM tblemployees e 
-            LEFT JOIN tbldepartments d ON e.Department = d.id 
-            WHERE e.id=:empid";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
-    $query->execute();
-    $employee = $query->fetch(PDO::FETCH_ASSOC);
-
-    if (!$employee) {
-        header('location: manageemployee.php');
-        exit();
-    }
-
-    // Fetch departments
-    $sql = "SELECT id, DepartmentName FROM tbldepartments";
-    $query = $dbh->prepare($sql);
-    $query->execute();
-    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $error = 'Database Error: ' . $e->getMessage();
 }
 ?>
 <!DOCTYPE html>

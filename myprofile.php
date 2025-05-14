@@ -12,6 +12,41 @@ $error = "";
 $success = "";
 $eid = $_SESSION['eid'];
 
+// Fetch employee data with department name
+try {
+    $sql = "SELECT e.*, d.DepartmentName as DeptName FROM tblemployees e 
+            LEFT JOIN tbldepartments d ON e.Department = d.id 
+            WHERE e.id = :eid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':eid', $eid, PDO::PARAM_INT);
+    $query->execute();
+    $result = $query->fetch(PDO::FETCH_OBJ);
+    
+    if (!$result) {
+        header('location: logout.php');
+        exit();
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching profile data: " . $e->getMessage());
+    $error = "Error fetching profile data";
+}
+
+// Fetch departments
+try {
+    $sql = "SELECT id, DepartmentName FROM tbldepartments ORDER BY DepartmentName";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($departments)) {
+        $error = "No departments found. Please contact your administrator.";
+    }
+} catch (PDOException $e) {
+    error_log("Department fetch error in myprofile.php: " . $e->getMessage());
+    $departments = [];
+    $error = "Unable to load departments. Please contact your administrator.";
+}
+
 // Handle form submission
 if (isset($_POST['update'])) {
     // Get form data
@@ -105,43 +140,7 @@ if (isset($_POST['update'])) {
             exit();
         } catch (PDOException $e) {
             $error = "Error updating profile. Please try again.";
-        }
-    }
-}
-
-// Fetch employee data with department name
-try {
-    $sql = "SELECT e.*, d.DepartmentName as DeptName FROM tblemployees e 
-            LEFT JOIN tbldepartments d ON e.Department = d.id 
-            WHERE e.id = :eid";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':eid', $eid, PDO::PARAM_INT);
-    $query->execute();
-    $result = $query->fetch(PDO::FETCH_OBJ);
-    
-    if (!$result) {
-        header('location: logout.php');
-        exit();
-    }
-} catch (PDOException $e) {
-    error_log("Error fetching profile data: " . $e->getMessage());
-    $error = "Error fetching profile data";
-}
-
-// Fetch departments
-try {
-    $sql = "SELECT id, DepartmentName FROM tbldepartments ORDER BY DepartmentName";
-    $query = $dbh->prepare($sql);
-    $query->execute();
-    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
-    
-    if (empty($departments)) {
-        $error = "No departments found. Please contact your administrator.";
-    }
-} catch (PDOException $e) {
-    error_log("Department fetch error in myprofile.php: " . $e->getMessage());
-    $departments = [];
-    $error = "Unable to load departments. Please contact your administrator.";
+        }    }
 }
 
 // Get success message from session
