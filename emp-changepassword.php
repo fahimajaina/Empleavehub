@@ -1,3 +1,93 @@
+<?php
+session_start();
+include('include/config.php');
+
+// Check if employee is logged in
+if (!isset($_SESSION['eid']) || empty($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+$eid = $_SESSION['eid'];
+
+// Handle form submission
+if (isset($_POST['change'])) {
+    try {
+        // Get and sanitize user input
+        $currentPassword = trim($_POST['password']);
+        $newPassword = trim($_POST['newpassword']);
+        $confirmPassword = trim($_POST['confirmpassword']);
+
+        // Validate password fields are not empty
+        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            throw new Exception("All fields are required");
+        }
+
+        // Validate new password requirements
+        if (strlen($newPassword) < 8) {
+            throw new Exception("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
+        }
+
+        // Check for uppercase, lowercase and number
+        if (!preg_match('/[A-Z]/', $newPassword) || !preg_match('/[a-z]/', $newPassword) || !preg_match('/[0-9]/', $newPassword)) {
+            throw new Exception("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
+        }
+
+        // Check if passwords match
+        if ($newPassword !== $confirmPassword) {
+            throw new Exception("New Password and Confirm Password do not match");
+        }
+
+        // Get employee's current password from database
+        $sql = "SELECT Password FROM tblemployees WHERE id = :eid";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':eid', $eid, PDO::PARAM_INT);
+        $query->execute();
+        $result = $query->fetch(PDO::FETCH_ASSOC);
+
+        if (!$result) {
+            throw new Exception("Employee not found");
+        }
+
+        // Verify current password
+        if (!password_verify($currentPassword, $result['Password'])) {
+            throw new Exception("Current password is incorrect");
+        }
+
+        // Hash new password
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // Update password in database
+        $sql = "UPDATE tblemployees SET Password = :password WHERE id = :eid";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
+        $query->bindParam(':eid', $eid, PDO::PARAM_INT);
+
+        if ($query->execute()) {
+            $success = "Password changed successfully";
+        } else {
+            throw new Exception("Error updating password");
+        }
+
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// Fetch employee data for sidebar
+try {
+    $sql = "SELECT FirstName, LastName, EmpId FROM tblemployees WHERE id = :eid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':eid', $eid, PDO::PARAM_INT);
+    $query->execute();
+    $employeeData = $query->fetch(PDO::FETCH_OBJ);
+} catch (PDOException $e) {
+    error_log("Error fetching employee data: " . $e->getMessage());
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -223,11 +313,10 @@
 
 <!-- Sidebar -->
 <div id="sidebar">
-  <div class="sidebar-content">
-    <div class="text-center py-4">
+  <div class="sidebar-content">    <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">EMP12345</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlentities($employeeData->FirstName . " " . $employeeData->LastName); ?></h6>
+      <small class="text-muted"><?php echo htmlentities($employeeData->EmpId); ?></small>
     </div>
     <hr class="mx-3">
 
@@ -254,31 +343,38 @@
     <div class="row justify-content-center">
       <div class="col-md-6">
         <div class="card shadow-sm">
-          <h3 class="text-heading mb-4">Change Password</h3>
+          <h3 class="text-heading mb-4">Change Password</h3>          <?php if($error): ?>
+          <div class="alert alert-danger alert-dismissible fade show mb-4">
+            <?php echo htmlentities($error); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          <?php endif; ?>
 
-          <!-- Example Message -->
-          <!-- <div class="succWrap">Password changed successfully!</div> -->
-          <!-- <div class="errorWrap">Current password is incorrect.</div> -->
+          <?php if($success): ?>
+          <div class="alert alert-success alert-dismissible fade show mb-4">
+            <?php echo htmlentities($success); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          <?php endif; ?>
 
-          <form>
+          <form method="POST" onsubmit="return valid();">
             <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="password" placeholder=" " required>
+              <input type="password" class="form-control" name="password" id="password" placeholder=" " required>
               <label for="password">Current Password</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="newpassword" placeholder=" " required>
+              <input type="password" class="form-control" name="newpassword" id="newpassword" placeholder=" " required>
               <label for="newpassword">New Password</label>
             </div>
 
             <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="confirmpassword" placeholder=" " required>
+              <input type="password" class="form-control" name="confirmpassword" id="confirmpassword" placeholder=" " required>
               <label for="confirmpassword">Confirm New Password</label>
             </div>
 
-            <!-- Updated Button -->
             <div class="form-group mb-0">
-              <button type="submit" name="change" class="custom-btn" onclick="return valid();">
+              <button type="submit" name="change" class="custom-btn">
                 Change Password
               </button>
             </div>
@@ -291,15 +387,22 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  function valid() {
+<script>  function valid() {
+    const currentPassword = document.getElementById('password').value;
     const newPassword = document.getElementById('newpassword').value;
     const confirmPassword = document.getElementById('confirmpassword').value;
 
-    if (newPassword !== confirmPassword) {
-      alert("New Password and Confirm Password do not match.");
+    // Just check if fields are filled and passwords match
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("All fields are required");
       return false;
     }
+
+    if (newPassword !== confirmPassword) {
+      alert("New Password and Confirm Password do not match");
+      return false;
+    }
+
     return true;
   }
 
