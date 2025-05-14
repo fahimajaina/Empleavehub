@@ -93,11 +93,54 @@ if (isset($_POST['add'])) {
         // Validate password
         if (!validatePassword($password)) {
             throw new Exception("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
-        }
-
-        // Check if passwords match
+        }        // Check if passwords match
         if ($password !== $confirmpassword) {
             throw new Exception("Passwords do not match");
+        }
+        
+        // Check for duplicate mobile number
+        $stmt = $dbh->prepare("SELECT COUNT(*) FROM tblemployees WHERE Phonenumber = ?");
+        $stmt->execute([$mobileno]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception("This mobile number is already registered with another employee");
+        }
+
+        // Validate date of birth
+        if (strtotime($dob) > strtotime('today')) {
+            throw new Exception("Date of Birth cannot be in the future");
+        }
+        if (strtotime($dob) > strtotime('-18 years')) {
+            throw new Exception("Employee must be at least 18 years old");
+        }
+        if (strtotime($dob) < strtotime('-100 years')) {
+            throw new Exception("Please enter a valid Date of Birth");
+        }
+
+        // Address validation
+        if (strlen($address) < 5) {
+            throw new Exception("Address is too short. Minimum 5 characters required");
+        }
+        if (strlen($address) > 200) {
+            throw new Exception("Address is too long. Maximum 200 characters allowed");
+        }
+        if (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
+            throw new Exception("Address contains invalid characters");
+        }
+
+        // City validation
+        if (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
+            throw new Exception("City name must contain only letters");
+        }
+        if (strlen($city) < 2 || strlen($city) > 50) {
+            throw new Exception("City name must be between 2 and 50 characters");
+        }
+
+        // Country validation
+        if (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
+            throw new Exception("Country name must contain only letters");
+        }
+        if (strlen($country) < 2 || strlen($country) > 50) {
+            throw new Exception("Country name must be between 2 and 50 characters");
         }
 
         // Validate DOB (must be at least 18 years old)
