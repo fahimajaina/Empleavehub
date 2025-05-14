@@ -109,9 +109,11 @@ if (isset($_POST['update'])) {
     }
 }
 
-// Fetch employee data
+// Fetch employee data with department name
 try {
-    $sql = "SELECT * FROM tblemployees WHERE id = :eid";
+    $sql = "SELECT e.*, d.DepartmentName as DeptName FROM tblemployees e 
+            LEFT JOIN tbldepartments d ON e.Department = d.id 
+            WHERE e.id = :eid";
     $query = $dbh->prepare($sql);
     $query->bindParam(':eid', $eid, PDO::PARAM_INT);
     $query->execute();
@@ -122,22 +124,23 @@ try {
         exit();
     }
 } catch (PDOException $e) {
+    error_log("Error fetching profile data: " . $e->getMessage());
     $error = "Error fetching profile data";
 }
 
 // Fetch departments
 try {
-    $sql = "SELECT DepartmentName FROM tbldepartments ORDER BY DepartmentName";
+    $sql = "SELECT id, DepartmentName FROM tbldepartments ORDER BY DepartmentName";
     $query = $dbh->prepare($sql);
     $query->execute();
-    $departments = $query->fetchAll(PDO::FETCH_COLUMN);
+    $departments = $query->fetchAll(PDO::FETCH_ASSOC);
     
     if (empty($departments)) {
         $error = "No departments found. Please contact your administrator.";
     }
 } catch (PDOException $e) {
     error_log("Department fetch error in myprofile.php: " . $e->getMessage());
-    $departments = [];  // Initialize as empty array
+    $departments = [];
     $error = "Unable to load departments. Please contact your administrator.";
 }
 
@@ -394,13 +397,15 @@ if (isset($_SESSION['success'])) {
                         value="<?php echo htmlentities($result->Dob); ?>" required>
                 </div>
                 <div class="col-md-6">
-                    <label for="department" class="form-label">Department</label>
-                    <select class="form-select" id="department" name="department" required>
-                        <?php foreach($departments as $dept): ?>
-                            <option <?php echo ($result->Department == $dept) ? 'selected' : ''; ?>>
-                                <?php echo htmlentities($dept); ?>
-                            </option>
-                        <?php endforeach; ?>
+                    <label for="department" class="form-label">Department</label>                    <select class="form-select" id="department" name="department" required>
+                        <?php if (!empty($departments)): ?>
+                            <?php foreach($departments as $dept): ?>
+                                <option value="<?php echo htmlentities($dept['id']); ?>" 
+                                    <?php echo ($result->Department == $dept['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlentities($dept['DepartmentName']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <div class="col-md-6">
