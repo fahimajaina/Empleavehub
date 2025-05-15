@@ -116,7 +116,7 @@ if (isset($_POST['apply'])) {
 
 // Fetch available leave types with remaining balance
 $leave_types = array();
-$sql = "SELECT LeaveType, max FROM tblleavetype";
+$sql = "SELECT id, LeaveType, max FROM tblleavetype";
 $query = $dbh->prepare($sql);
 $query->execute();
 $available_leaves = $query->fetchAll(PDO::FETCH_ASSOC);
