@@ -9,8 +9,13 @@ if (!isset($_SESSION['eid'])) {
     exit();
 }
 
-$error = "";
-$msg = "";
+// Get messages from session
+$error = isset($_SESSION['error_msg']) ? $_SESSION['error_msg'] : "";
+$msg = isset($_SESSION['success_msg']) ? $_SESSION['success_msg'] : "";
+// Clear the messages
+unset($_SESSION['error_msg']);
+unset($_SESSION['success_msg']);
+
 $empid = $_SESSION['eid'];
 
 // Fetch employee details for sidebar
@@ -93,11 +98,14 @@ if (isset($_POST['apply'])) {
                         $query->bindParam(':description', $description, PDO::PARAM_STR);
                         $query->bindParam(':status', $status, PDO::PARAM_INT);
                         $query->bindParam(':empid', $empid, PDO::PARAM_STR);
-                        
-                        if($query->execute()) {
-                            $msg = "Leave application submitted successfully";
+                          if($query->execute()) {
+                            $_SESSION['success_msg'] = "Leave application submitted successfully";
+                            header("Location: apply-leave.php");
+                            exit();
                         } else {
-                            $error = "Something went wrong. Please try again";
+                            $_SESSION['error_msg'] = "Something went wrong. Please try again";
+                            header("Location: apply-leave.php");
+                            exit();
                         }                    }
                 }
             }
@@ -365,12 +373,16 @@ foreach($available_leaves as $leave) {
 <div class="main-content" id="main-content">
   <div class="container-fluid px-0">
     <div class="card shadow-sm rounded-4 p-5 border-0" style="background: #ffffff;">
-      <h4 class="mb-4 fw-semibold text-leave-title">Apply for Leave</h4>
-
-      <?php if ($error) { ?>
-        <div class="errorWrap"><?php echo htmlentities($error); ?></div>
+      <h4 class="mb-4 fw-semibold text-leave-title">Apply for Leave</h4>      <?php if ($error) { ?>
+        <div class="errorWrap alert alert-dismissible fade show">
+          <?php echo htmlentities($error); ?>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
       <?php } else if ($msg) { ?>
-        <div class="succWrap"><?php echo htmlentities($msg); ?></div>
+        <div class="succWrap alert alert-dismissible fade show">
+          <?php echo htmlentities($msg); ?>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
       <?php } ?>
 
       <form method="post">
@@ -418,10 +430,20 @@ foreach($available_leaves as $leave) {
   const toggleBtn = document.getElementById('menu-toggle');
   const sidebar = document.getElementById('sidebar');
   const mainContent = document.getElementById('main-content');
-
   toggleBtn?.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
     mainContent.classList.toggle('collapsed');
+  });
+
+  // Auto-hide alerts after 5 seconds
+  document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+      setTimeout(function() {
+        const bsAlert = new bootstrap.Alert(alert);
+        bsAlert.close();
+      }, 5000);
+    });
   });
 </script>
 </body>
