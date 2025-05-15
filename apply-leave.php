@@ -13,6 +13,13 @@ $error = "";
 $msg = "";
 $empid = $_SESSION['eid'];
 
+// Fetch employee details for sidebar
+$sql = "SELECT FirstName, LastName, EmpId FROM tblemployees WHERE id = :empid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_STR);
+$query->execute();
+$employee = $query->fetch(PDO::FETCH_ASSOC);
+
 // Handle form submission
 if (isset($_POST['apply'])) {
     $leavetype = trim($_POST['leavetype']);
@@ -330,11 +337,10 @@ foreach($available_leaves as $leave) {
 
 <!-- Sidebar -->
 <div id="sidebar">
-  <div class="sidebar-content">
-    <div class="text-center py-4">
+  <div class="sidebar-content">    <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">7856214</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlentities($employee['FirstName'].' '.$employee['LastName']); ?></h6>
+      <small class="text-muted"><?php echo htmlentities($employee['EmpId']); ?></small>
     </div>
     <hr class="mx-3">
 
