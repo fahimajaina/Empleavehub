@@ -1,3 +1,44 @@
+<?php
+// Start session and include required files
+session_start();
+include('include/config.php');
+
+// Check if employee is logged in
+if (!isset($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Fetch employee details for sidebar
+$empid = $_SESSION['eid'];
+$sql = "SELECT FirstName, LastName, EmpId FROM tblemployees WHERE id = :empid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_STR);
+$query->execute();
+$employee = $query->fetch(PDO::FETCH_ASSOC);
+
+// Fetch leave history
+$sql = "SELECT l.id, lt.LeaveType, l.FromDate, l.ToDate, l.PostingDate, l.Status, 
+        CASE 
+            WHEN l.Status = 1 THEN 'Approved'
+            WHEN l.Status = 2 THEN 'Not Approved'
+            ELSE 'Pending'
+        END as StatusText,
+        CASE 
+            WHEN l.Status = 1 THEN 'bg-success'
+            WHEN l.Status = 2 THEN 'bg-danger'
+            ELSE 'bg-warning text-dark'
+        END as StatusClass
+        FROM tblleaves l 
+        INNER JOIN tblleavetype lt ON l.LeaveTypeID = lt.id 
+        WHERE l.empid = :empid 
+        ORDER BY l.PostingDate DESC";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_STR);
+$query->execute();
+$leaves = $query->fetchAll(PDO::FETCH_ASSOC);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -236,8 +277,8 @@
   <div class="sidebar-content">
     <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">EMP12345</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlentities($employee['FirstName'] . ' ' . $employee['LastName']); ?></h6>
+      <small class="text-muted"><?php echo htmlentities($employee['EmpId']); ?></small>
     </div>
     <hr class="mx-3">
 
@@ -290,33 +331,29 @@
           </tr>
         </thead>
         <tbody>
+          <?php 
+          if (empty($leaves)) { 
+          ?>
           <tr>
-            <td>1</td>
-            <td>Casual Leave</td>
-            <td>2024-09-09</td>
-            <td>2024-09-15</td>
-            <td>2024-09-12 17:42:40</td>
-            <td><span class="badge bg-success">Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
+              <td colspan="7" class="text-center">No leave records found</td>
           </tr>
+          <?php 
+          } else {
+              foreach ($leaves as $index => $leave): 
+          ?>
           <tr>
-            <td>2</td>
-            <td>Sick Leave</td>
-            <td>2025-02-10</td>
-            <td>2025-02-15</td>
-            <td>2025-02-12 01:14:42</td>
-            <td><span class="badge bg-warning text-dark">Pending</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
+              <td><?php echo htmlentities($index + 1); ?></td>
+              <td><?php echo htmlentities($leave['LeaveType']); ?></td>
+              <td><?php echo htmlentities($leave['FromDate']); ?></td>
+              <td><?php echo htmlentities($leave['ToDate']); ?></td>
+              <td><?php echo htmlentities($leave['PostingDate']); ?></td>
+              <td><span class="badge <?php echo htmlentities($leave['StatusClass']); ?>"><?php echo htmlentities($leave['StatusText']); ?></span></td>
+              <td><a href="leave-details.php?id=<?php echo htmlentities($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
           </tr>
-          <tr>
-            <td>3</td>
-            <td>Emergency Leave</td>
-            <td>2024-12-01</td>
-            <td>2024-12-03</td>
-            <td>2024-11-28 10:30:00</td>
-            <td><span class="badge bg-danger">Not Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
+          <?php 
+              endforeach; 
+          }
+          ?>
         </tbody>
       </table>
     </div>
