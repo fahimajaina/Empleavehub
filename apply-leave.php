@@ -1,3 +1,132 @@
+<?php
+// Start session and include required files
+session_start();
+include('include/config.php');
+
+// Check if employee is logged in
+if (!isset($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+$error = "";
+$msg = "";
+$empid = $_SESSION['eid'];
+
+// Handle form submission
+if (isset($_POST['apply'])) {
+    $leavetype = trim($_POST['leavetype']);
+    $fromdate = trim($_POST['fromdate']);
+    $todate = trim($_POST['todate']);
+    $description = trim($_POST['description']);
+    
+    // Validate inputs
+    if (empty($leavetype) || empty($fromdate) || empty($todate) || empty($description)) {
+        $error = "All fields are required";
+    } else {
+        // Convert dates for comparison
+        $from_timestamp = strtotime($fromdate);
+        $to_timestamp = strtotime($todate);
+        $current_timestamp = strtotime(date('Y-m-d'));
+        
+        // Validate dates
+        if ($from_timestamp < $current_timestamp) {
+            $error = "From date cannot be in the past";
+        } else if ($to_timestamp < $from_timestamp) {
+            $error = "To date cannot be before from date";
+        } else {
+            // Check for overlapping leaves
+            $sql = "SELECT COUNT(*) FROM tblleaves WHERE empid = :empid 
+                    AND ((FromDate BETWEEN :fromdate AND :todate) 
+                    OR (ToDate BETWEEN :fromdate AND :todate)
+                    OR (:fromdate BETWEEN FromDate AND ToDate))
+                    AND Status != 2"; // 2 = Rejected
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':empid', $empid, PDO::PARAM_STR);
+            $query->bindParam(':fromdate', $fromdate, PDO::PARAM_STR);
+            $query->bindParam(':todate', $todate, PDO::PARAM_STR);
+            $query->execute();
+            
+            if($query->fetchColumn() > 0) {
+                $error = "You already have a leave application for these dates";
+            } else {                // Get leave type ID and maximum allowed
+                $sql = "SELECT id, max FROM tblleavetype WHERE LeaveType = :leavetype";
+                $query = $dbh->prepare($sql);
+                $query->bindParam(':leavetype', $leavetype, PDO::PARAM_STR);
+                $query->execute();
+                $leave_info = $query->fetch(PDO::FETCH_ASSOC);
+                  if (!$leave_info) {
+                    $error = "Invalid leave type";
+                } else {
+                    $leavetype_id = $leave_info['id'];
+                    $max_allowed = $leave_info['max']; // Maximum number of times leave can be applied
+                    
+                    // Count how many times this type of leave has been applied
+                    $sql = "SELECT COUNT(*) FROM tblleaves 
+                           WHERE LeaveTypeID = :leavetypeid 
+                           AND empid = :empid 
+                           AND Status = 1"; // 1 = Approved
+                    $query = $dbh->prepare($sql);
+                    $query->bindParam(':leavetypeid', $leavetype_id, PDO::PARAM_INT);
+                    $query->bindParam(':empid', $empid, PDO::PARAM_STR);
+                    $query->execute();
+                    $used_count = $query->fetchColumn();
+                
+                    if($used_count >= $max_allowed) {
+                        $error = "You have already used the maximum number of applications for this leave type";
+                    } else {
+                        // Insert leave application
+                        $status = 0; // 0 = Pending
+                        $sql = "INSERT INTO tblleaves(LeaveTypeID, ToDate, FromDate, Description, Status, empid) 
+                                VALUES(:leavetypeid, :todate, :fromdate, :description, :status, :empid)";
+                        $query = $dbh->prepare($sql);
+                        $query->bindParam(':leavetypeid', $leavetype_id, PDO::PARAM_INT);
+                        $query->bindParam(':fromdate', $fromdate, PDO::PARAM_STR);
+                        $query->bindParam(':todate', $todate, PDO::PARAM_STR);
+                        $query->bindParam(':description', $description, PDO::PARAM_STR);
+                        $query->bindParam(':status', $status, PDO::PARAM_INT);
+                        $query->bindParam(':empid', $empid, PDO::PARAM_STR);
+                        
+                        if($query->execute()) {
+                            $msg = "Leave application submitted successfully";
+                        } else {
+                            $error = "Something went wrong. Please try again";
+                        }                    }
+                }
+            }
+        }
+    }
+}
+
+
+// Fetch available leave types with remaining balance
+$leave_types = array();
+$sql = "SELECT LeaveType, max FROM tblleavetype";
+$query = $dbh->prepare($sql);
+$query->execute();
+$available_leaves = $query->fetchAll(PDO::FETCH_ASSOC);
+
+foreach($available_leaves as $leave) {
+    // Count how many times this leave type has been used
+    $sql = "SELECT COUNT(*) FROM tblleaves 
+            WHERE LeaveTypeID = :leavetypeid 
+            AND empid = :empid 
+            AND Status = 1"; // 1 = Approved
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':leavetypeid', $leave['id'], PDO::PARAM_INT);
+    $query->bindParam(':empid', $empid, PDO::PARAM_STR);
+    $query->execute();
+    $used_count = $query->fetchColumn();
+    
+    $leave_types[] = array(
+        'type' => $leave['LeaveType'],
+        'remaining' => $leave['max'] - $used_count,
+        'used' => $used_count,
+        'max' => $leave['max']
+    );
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -232,36 +361,41 @@
     <div class="card shadow-sm rounded-4 p-5 border-0" style="background: #ffffff;">
       <h4 class="mb-4 fw-semibold text-leave-title">Apply for Leave</h4>
 
-     
+      <?php if ($error) { ?>
+        <div class="errorWrap"><?php echo htmlentities($error); ?></div>
+      <?php } else if ($msg) { ?>
+        <div class="succWrap"><?php echo htmlentities($msg); ?></div>
+      <?php } ?>
 
-      <form>
+      <form method="post">
         <div class="row g-4 mb-4">
           <div class="col-md-6">
             <label for="leavetype" class="form-label fw-medium text-secondary">Leave Type</label>
-            <select class="form-select rounded-3 shadow-sm border-1" id="leavetype" required>
-             <option value="">Select leave type...</option>
-             <option value="Casual Leave">Casual Leave (3 left)</option>
-             <option value="Sick Leave">Sick Leave (4 left)</option>
-             <option value="Earned Leave">Earned Leave (2 left)</option>
-           </select>
-
+            <select class="form-select rounded-3 shadow-sm border-1" id="leavetype" name="leavetype" required>              <option value="">Select leave type...</option>
+              <?php foreach ($leave_types as $leave) { ?>
+                <option value="<?php echo htmlentities($leave['type']); ?>">
+                  <?php echo htmlentities($leave['type']); ?> 
+                  (<?php echo htmlentities($leave['used']); ?>/<?php echo htmlentities($leave['max']); ?> applications used)
+                </option>
+              <?php } ?>
+            </select>
           </div>
         </div>
 
         <div class="row g-4 mb-4">
           <div class="col-md-6">
             <label for="fromdate" class="form-label fw-medium text-secondary">From Date</label>
-            <input type="date" class="form-control rounded-3 shadow-sm border-1" id="fromdate" required>
+            <input type="date" class="form-control rounded-3 shadow-sm border-1" id="fromdate" name="fromdate" required>
           </div>
           <div class="col-md-6">
             <label for="todate" class="form-label fw-medium text-secondary">To Date</label>
-            <input type="date" class="form-control rounded-3 shadow-sm border-1" id="todate" required>
+            <input type="date" class="form-control rounded-3 shadow-sm border-1" id="todate" name="todate" required>
           </div>
         </div>
 
         <div class="mb-4">
           <label for="description" class="form-label fw-medium text-secondary">Description</label>
-          <textarea class="form-control rounded-3 shadow-sm border-1" id="description" rows="4" placeholder="Enter the reason for leave..." required></textarea>
+          <textarea class="form-control rounded-3 shadow-sm border-1" id="description" name="description" rows="4" placeholder="Enter the reason for leave..." required></textarea>
         </div>
 
         <button type="submit" name="apply" id="apply" class="btn btn-primary px-5 py-2 rounded-3 shadow-sm">Apply</button>
