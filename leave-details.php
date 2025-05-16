@@ -1,3 +1,67 @@
+<?php
+session_start();
+include('include/config.php');
+
+// Check if user is logged in
+if (!isset($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Check if leave ID is provided
+if (!isset($_GET['leaveid']) || empty($_GET['leaveid'])) {
+    header('location: leavehistory.php');
+    exit();
+}
+
+$eid = $_SESSION['eid'];
+$lid = intval($_GET['leaveid']);
+
+// Fetch leave details with employee information
+$sql = "SELECT l.*, lt.LeaveType, lt.max as max_allowed, 
+        e.FirstName, e.LastName, e.EmpId, e.Gender, e.EmailId, e.Phonenumber,
+        CASE 
+            WHEN l.Status = 1 THEN 'Approved'
+            WHEN l.Status = 2 THEN 'Not Approved'
+            ELSE 'Pending'
+        END as StatusText,
+        CASE 
+            WHEN l.Status = 1 THEN 'bg-success'
+            WHEN l.Status = 2 THEN 'bg-danger'
+            ELSE 'bg-warning text-dark'
+        END as StatusClass
+        FROM tblleaves l 
+        INNER JOIN tblleavetype lt ON l.LeaveTypeID = lt.id 
+        INNER JOIN tblemployees e ON l.empid = e.id
+        WHERE l.id = :leaveid AND l.empid = :empid";
+
+$query = $dbh->prepare($sql);
+$query->bindParam(':leaveid', $lid, PDO::PARAM_INT);
+$query->bindParam(':empid', $eid, PDO::PARAM_INT);
+$query->execute();
+$leaveDetails = $query->fetch(PDO::FETCH_ASSOC);
+
+if (!$leaveDetails) {
+    header('location: leavehistory.php');
+    exit();
+}
+
+// Calculate leave statistics
+$sql = "SELECT COUNT(*) as used FROM tblleaves 
+        WHERE LeaveTypeID = :leavetypeid 
+        AND empid = :empid 
+        AND Status = 1 
+        AND YEAR(PostingDate) = YEAR(CURRENT_DATE())";
+$query = $dbh->prepare($sql);
+$query->bindParam(':leavetypeid', $leaveDetails['LeaveTypeID'], PDO::PARAM_INT);
+$query->bindParam(':empid', $eid, PDO::PARAM_INT);
+$query->execute();
+$leaveCount = $query->fetch(PDO::FETCH_ASSOC);
+
+$maxAllowed = $leaveDetails['max_allowed'];
+$usedLeaves = $leaveCount['used'];
+$remainingLeaves = $maxAllowed - $usedLeaves;
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,8 +286,8 @@
   <div class="sidebar-content">
     <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">7856214</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlspecialchars($leaveDetails['FirstName'] . ' ' . $leaveDetails['LastName']); ?></h6>
+      <small class="text-muted"><?php echo htmlspecialchars($leaveDetails['EmpId']); ?></small>
     </div>
     <hr class="mx-3">
 
@@ -259,46 +323,45 @@
         <tbody>
           <tr>
             <td class="label">Employee Name:</td>
-            <td class="value">John Doe</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['FirstName'] . ' ' . $leaveDetails['LastName']); ?></td>
             <td class="label">Emp ID:</td>
-            <td class="value">7856214</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['EmpId']); ?></td>
             <td class="label">Gender:</td>
-            <td class="value">Male</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['Gender']); ?></td>
           </tr>
           <tr>
             <td class="label">Emp Email ID:</td>
-            <td class="value">jhn12@gmail.com</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['EmailId']); ?></td>
             <td class="label">Emp Contact No.:</td>
-            <td class="value">23232323</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['Phonenumber']); ?></td>
             <td></td><td></td>
           </tr>
           <tr>
             <td class="label">Leave Type:</td>
-            <td class="value">Casual Leaves</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['LeaveType']); ?></td>
             <td class="label">Leave Date:</td>
-            <td class="value">09/09/2024 - 15/09/2024</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['FromDate'] . ' - ' . $leaveDetails['ToDate']); ?></td>
             <td class="label">Posting Date:</td>
-            <td class="value">2024-09-12 17:42:40</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['PostingDate']); ?></td>
           </tr>
           <tr>
-  <td colspan="6">
-    <div class="d-flex flex-wrap gap-3">
-      <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
-        <div class="label">Max Allowed (per year)</div>
-        <div class="value fs-5 fw-semibold text-primary">10</div>
-      </div>
-      <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
-        <div class="label">Requested So Far</div>
-        <div class="value fs-5 fw-semibold text-warning">3</div>
-      </div>
-      <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
-        <div class="label">Remaining</div>
-        <div class="value fs-5 fw-semibold text-success">7</div>
-      </div>
-    </div>
-  </td>
-</tr>
-
+            <td colspan="6">
+              <div class="d-flex flex-wrap gap-3">
+                <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
+                  <div class="label">Max Allowed (per year)</div>
+                  <div class="value fs-5 fw-semibold text-primary"><?php echo $maxAllowed; ?></div>
+                </div>
+                <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
+                  <div class="label">Requested So Far</div>
+                  <div class="value fs-5 fw-semibold text-warning"><?php echo $usedLeaves; ?></div>
+                </div>
+                <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
+                  <div class="label">Remaining</div>
+                  <div class="value fs-5 fw-semibold text-success"><?php echo $remainingLeaves; ?></div>
+                </div>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -308,19 +371,17 @@
         <tbody>
           <tr>
             <td class="label">Leave Description:</td>
-            <td class="value" colspan="5">Need casual leaves for some personal work.</td>
+            <td class="value" colspan="5"><?php echo htmlspecialchars($leaveDetails['Description']); ?></td>
           </tr>
           <tr>
             <td class="label">Leave Status:</td>
-            <td colspan="5"><span class="badge bg-success text-white">Approved</span></td>
-          </tr>
-          <tr>
+            <td colspan="5"><span class="badge <?php echo $leaveDetails['StatusClass']; ?> text-white"><?php echo htmlspecialchars($leaveDetails['StatusText']); ?></span></td>
+          </tr>          <tr>
             <td class="label">Admin Remark:</td>
-            <td class="value" colspan="5">Leave approved</td>
-          </tr>
-          <tr>
-            <td class="label">Admin Action Taken Date:</td>
-            <td class="value" colspan="5">2024-09-13 20:39:40</td>
+            <td class="value" colspan="5"><?php echo !empty($leaveDetails['AdminRemark']) ? htmlspecialchars($leaveDetails['AdminRemark']) : 'Not Available'; ?></td>
+          </tr>          <tr>
+            <td class="label">Admin Action Date:</td>
+            <td class="value" colspan="5"><?php echo !empty($leaveDetails['AdminRemarkDate']) ? htmlspecialchars($leaveDetails['AdminRemarkDate']) : 'Not Available'; ?></td>
           </tr>
         </tbody>
       </table>

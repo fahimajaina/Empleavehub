@@ -346,9 +346,8 @@ $leaves = $query->fetchAll(PDO::FETCH_ASSOC);
               <td><?php echo htmlentities($leave['LeaveType']); ?></td>
               <td><?php echo htmlentities($leave['FromDate']); ?></td>
               <td><?php echo htmlentities($leave['ToDate']); ?></td>
-              <td><?php echo htmlentities($leave['PostingDate']); ?></td>
-              <td><span class="badge <?php echo htmlentities($leave['StatusClass']); ?>"><?php echo htmlentities($leave['StatusText']); ?></span></td>
-              <td><a href="leave-details.php?id=<?php echo htmlentities($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
+              <td><?php echo htmlentities($leave['PostingDate']); ?></td>              <td><span class="badge <?php echo htmlentities($leave['StatusClass']); ?>"><?php echo htmlentities($leave['StatusText']); ?></span></td>
+              <td><a href="leave-details.php?leaveid=<?php echo htmlentities($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
           </tr>
           <?php 
               endforeach; 
