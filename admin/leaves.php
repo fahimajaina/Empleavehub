@@ -1,3 +1,57 @@
+<?php
+// Start session and include configuration
+session_start();
+include('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Fetch all leaves with employee and leave type details
+$sql = "SELECT l.id, l.PostingDate, l.Status, 
+        e.FirstName, e.LastName, e.EmpId,
+        lt.LeaveType 
+        FROM tblleaves l
+        JOIN tblemployees e ON l.empid = e.id
+        JOIN tblleavetype lt ON l.LeaveTypeID = lt.id
+        ORDER BY l.PostingDate DESC";
+
+try {
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $leaves = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    // Log error and show generic message
+    error_log("Error fetching leaves: " . $e->getMessage());
+    $error = "Error fetching leave records. Please try again later.";
+}
+
+// Function to get status badge class
+function getStatusBadgeClass($status) {
+    switch($status) {
+        case 1:
+            return 'bg-success';
+        case 2:
+            return 'bg-danger';
+        default:
+            return 'bg-warning text-dark';
+    }
+}
+
+// Function to get status text
+function getStatusText($status) {
+    switch($status) {
+        case 1:
+            return 'Approved';
+        case 2:
+            return 'Not Approved';
+        default:
+            return 'Pending';
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -324,30 +378,39 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td><a href="editemployee.php">John Doe(7856214)</a></td>
-            <td>Casual Leave</td>
-            <td>2024-09-12 17:42:40</td>
-            <td><span class="badge bg-success">Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
-          <tr>
-            <td>2</td>
-            <td><a href="editemployee.php">Rahul Kumar(7856214)</a></td>
-            <td>Sick Leave</td>
-            <td>2025-02-12 01:14:42</td>
-            <td><span class="badge bg-warning text-dark">Pending</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
-          <tr>
-            <td>3</td>
-            <td><a href="editemployee.php">Rahul Kumar(7856214)</a></td>
-            <td>Emergency Leave</td>
-            <td>2024-11-28 10:30:00</td>
-            <td><span class="badge bg-danger">Not Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
+          <?php 
+          if(isset($error)): ?>
+            <tr>
+              <td colspan="6" class="text-center text-danger"><?php echo htmlspecialchars($error); ?></td>
+            </tr>
+          <?php 
+          elseif(empty($leaves)): ?>
+            <tr>
+              <td colspan="6" class="text-center">No leave records found</td>
+            </tr>
+          <?php 
+          else:
+            $cnt = 1;
+            foreach($leaves as $leave): 
+              // Prepare employee name with ID
+              $empName = htmlspecialchars($leave['FirstName'] . ' ' . $leave['LastName'] . 
+                        '(' . $leave['EmpId'] . ')');
+              // Get status styling
+              $statusClass = getStatusBadgeClass($leave['Status']);
+              $statusText = getStatusText($leave['Status']);
+          ?>
+            <tr>
+              <td><?php echo $cnt++; ?></td>
+              <td><a href="editemployee.php?empid=<?php echo htmlspecialchars($leave['EmpId']); ?>"><?php echo $empName; ?></a></td>
+              <td><?php echo htmlspecialchars($leave['LeaveType']); ?></td>
+              <td><?php echo htmlspecialchars($leave['PostingDate']); ?></td>
+              <td><span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></td>
+              <td><a href="leave-details.php?leaveid=<?php echo htmlspecialchars($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
+            </tr>
+          <?php 
+            endforeach;
+          endif; 
+          ?>
         </tbody>
       </table>
     </div>
