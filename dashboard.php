@@ -1,3 +1,65 @@
+<?php
+session_start();
+include('include/config.php');
+
+// Check if employee is logged in
+if (!isset($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+$empid = $_SESSION['eid'];
+
+// Fetch employee details
+$sql = "SELECT FirstName, LastName, EmpId FROM tblemployees WHERE id = :empid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_INT);
+$query->execute();
+$employee = $query->fetch(PDO::FETCH_ASSOC);
+
+// Count total leaves
+$sql = "SELECT COUNT(*) as total FROM tblleaves WHERE empid = :empid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_INT);
+$query->execute();
+$totalLeaves = $query->fetchColumn();
+
+// Count approved leaves
+$sql = "SELECT COUNT(*) as approved FROM tblleaves WHERE empid = :empid AND Status = 1";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_INT);
+$query->execute();
+$approvedLeaves = $query->fetchColumn();
+
+// Count pending leaves
+$sql = "SELECT COUNT(*) as pending FROM tblleaves WHERE empid = :empid AND Status = 0";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_INT);
+$query->execute();
+$pendingLeaves = $query->fetchColumn();
+
+// Fetch recent leave applications
+$sql = "SELECT l.*, 
+        CASE 
+            WHEN l.Status = 1 THEN 'Approved'
+            WHEN l.Status = 2 THEN 'Not Approved'
+            ELSE 'Pending'
+        END as StatusText,
+        CASE 
+            WHEN l.Status = 1 THEN 'bg-success'
+            WHEN l.Status = 2 THEN 'bg-danger'
+            ELSE 'bg-warning text-dark'
+        END as StatusClass,
+        lt.LeaveType 
+        FROM tblleaves l
+        LEFT JOIN tblleavetype lt ON l.LeaveTypeID = lt.id 
+        WHERE l.empid = :empid 
+        ORDER BY l.PostingDate DESC LIMIT 5";
+$query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_INT);
+$query->execute();
+$recentLeaves = $query->fetchAll(PDO::FETCH_ASSOC);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -182,8 +244,8 @@
   <div class="sidebar-content">
     <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">EMP12345</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlspecialchars($employee['FirstName'] . ' ' . $employee['LastName']); ?></h6>
+      <small class="text-muted"><?php echo htmlspecialchars($employee['EmpId']); ?></small>
     </div>
     <hr class="mx-3">
 
@@ -212,7 +274,7 @@
         <div class="card border-0 shadow-sm summary-card" style="background-color: #48A6A7; color: #fff;">
           <div class="card-body">
             <h5 class="card-title">Total Leaves</h5>
-            <p class="card-text display-6 fw-semibold">2</p>
+            <p class="card-text display-6 fw-semibold"><?php echo htmlspecialchars($totalLeaves); ?></p>
           </div>
         </div>
       </a>
@@ -222,7 +284,7 @@
         <div class="card border-0 shadow-sm summary-card" style="background-color: #48A6A7; color: #fff;">
           <div class="card-body">
             <h5 class="card-title">Approved Leaves</h5>
-            <p class="card-text display-6 fw-semibold">1</p>
+            <p class="card-text display-6 fw-semibold"><?php echo htmlspecialchars($approvedLeaves); ?></p>
           </div>
         </div>
       </a>
@@ -232,7 +294,7 @@
         <div class="card border-0 shadow-sm summary-card" style="background-color: #48A6A7; color: #fff;">
           <div class="card-body">
             <h5 class="card-title">New Leave Applications</h5>
-            <p class="card-text display-6 fw-semibold">1</p>
+            <p class="card-text display-6 fw-semibold"><?php echo htmlspecialchars($pendingLeaves); ?></p>
           </div>
         </div>
       </a>
@@ -243,7 +305,6 @@
   <div class="card mt-4 border-0 shadow-sm">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
       <h6 class="mb-0 fw-bold" style="color: #48A6A7;">Latest Leave Applications</h6>
-    <!--  <button class="btn btn-sm btn-outline-primary">View All</button>-->
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -251,7 +312,6 @@
           <thead style="background-color: #e0f7f7;">
             <tr style="color: #1f5d5d;">
               <th scope="col">#</th>
-              <th scope="col">Employee Name</th>
               <th scope="col">Leave Type</th>
               <th scope="col">Posting Date</th>
               <th scope="col">Status</th>
@@ -259,22 +319,21 @@
             </tr>
           </thead>
           <tbody>
-            <tr class="border-bottom">
-              <td>1</td>
-              <td>John Doe (7856214)</td>
-              <td>Sick Leave</td>
-              <td>2025-02-12 01:14:42</td>
-              <td><span class="badge bg-warning text-dark">Pending</span></td>
-              <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-            </tr>
+            <?php if (empty($recentLeaves)): ?>
             <tr>
-              <td>2</td>
-              <td>John Doe (7856214)</td>
-              <td>Casual Leave</td>
-              <td>2024-09-12 17:42:40</td>
-              <td><span class="badge bg-success">Approved</span></td>
-              <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
+              <td colspan="5" class="text-center">No leave applications found</td>
             </tr>
+            <?php else: ?>
+              <?php foreach ($recentLeaves as $index => $leave): ?>
+              <tr class="border-bottom">
+                <td><?php echo $index + 1; ?></td>
+                <td><?php echo htmlspecialchars($leave['LeaveType']); ?></td>
+                <td><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($leave['PostingDate']))); ?></td>
+                <td><span class="badge <?php echo htmlspecialchars($leave['StatusClass']); ?>"><?php echo htmlspecialchars($leave['StatusText']); ?></span></td>
+                <td><a href="leave-details.php?leaveid=<?php echo htmlspecialchars($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
+              </tr>
+              <?php endforeach; ?>
+            <?php endif; ?>
           </tbody>
         </table>
       </div>
