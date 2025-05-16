@@ -1,3 +1,136 @@
+<?php
+session_start();
+include('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location: index.php');
+    exit();
+}
+
+// Check if leave ID is provided
+if (!isset($_GET['leaveid']) || empty($_GET['leaveid'])) {
+    header('location: leaves.php');
+    exit();
+}
+
+$leaveid = intval($_GET['leaveid']);
+$error = '';
+$success = '';
+
+// Fetch leave details with employee information
+$sql = "SELECT l.*, lt.LeaveType, lt.max as max_allowed,
+        e.FirstName, e.LastName, e.EmpId, e.Gender, e.EmailId, e.Phonenumber,
+        CASE 
+            WHEN l.Status = 1 THEN 'Approved'
+            WHEN l.Status = 2 THEN 'Not Approved'
+            ELSE 'Pending'
+        END as StatusText,
+        CASE 
+            WHEN l.Status = 1 THEN 'bg-success'
+            WHEN l.Status = 2 THEN 'bg-danger'
+            ELSE 'bg-warning text-dark'
+        END as StatusClass
+        FROM tblleaves l 
+        INNER JOIN tblleavetype lt ON l.LeaveTypeID = lt.id 
+        INNER JOIN tblemployees e ON l.empid = e.id
+        WHERE l.id = :leaveid";
+
+try {
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':leaveid', $leaveid, PDO::PARAM_INT);
+    $query->execute();
+    $leaveDetails = $query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$leaveDetails) {
+        header('location: leaves.php');
+        exit();
+    }
+
+    // Calculate leave statistics for the current year
+    $sql = "SELECT COUNT(*) as used FROM tblleaves 
+            WHERE LeaveTypeID = :leavetypeid 
+            AND empid = :empid 
+            AND Status = 1 
+            AND YEAR(PostingDate) = YEAR(CURRENT_DATE())";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':leavetypeid', $leaveDetails['LeaveTypeID'], PDO::PARAM_INT);
+    $query->bindParam(':empid', $leaveDetails['empid'], PDO::PARAM_INT);
+    $query->execute();
+    $leaveCount = $query->fetch(PDO::FETCH_ASSOC);
+
+    $maxAllowed = $leaveDetails['max_allowed'];
+    $usedLeaves = $leaveCount['used'];
+    $remainingLeaves = $maxAllowed - $usedLeaves;
+
+} catch(PDOException $e) {
+    error_log("Error in leave-details.php: " . $e->getMessage());
+    header('location: leaves.php');
+    exit();
+}
+
+// Handle form submission for updating leave status
+if(isset($_POST['update']) && isset($_POST['status']) && isset($_POST['description'])) {
+    try {
+        // Validate input
+        $status = filter_var($_POST['status'], FILTER_VALIDATE_INT, [
+            "options" => ["min_range" => 0, "max_range" => 2]
+        ]);
+        if ($status === false) {
+            throw new Exception("Invalid status value");
+        }
+
+        $description = trim($_POST['description']);
+        if (empty($description)) {
+            throw new Exception("Admin remark is required");
+        }
+
+        // If approving leave, check if employee has enough remaining leaves
+        if ($status == 1) {
+            // Count all approved leaves including the current one
+            $sql = "SELECT COUNT(*) as total FROM tblleaves 
+                    WHERE LeaveTypeID = :leavetypeid 
+                    AND empid = :empid 
+                    AND Status = 1 
+                    AND id != :leaveid
+                    AND YEAR(PostingDate) = YEAR(CURRENT_DATE())";
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':leavetypeid', $leaveDetails['LeaveTypeID'], PDO::PARAM_INT);
+            $query->bindParam(':empid', $leaveDetails['empid'], PDO::PARAM_INT);
+            $query->bindParam(':leaveid', $leaveid, PDO::PARAM_INT);
+            $query->execute();
+            $currentCount = $query->fetchColumn();
+
+            if (($currentCount + 1) > $maxAllowed) {
+                throw new Exception("Employee has exceeded maximum allowed leaves for this type");
+            }
+        }
+
+        // Update leave status
+        $sql = "UPDATE tblleaves SET Status = :status, AdminRemark = :description, AdminRemarkDate = NOW() 
+                WHERE id = :leaveid";
+        
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':status', $status, PDO::PARAM_INT);
+        $query->bindParam(':description', $description, PDO::PARAM_STR);
+        $query->bindParam(':leaveid', $leaveid, PDO::PARAM_INT);
+        
+        if($query->execute()) {
+            $success = "Leave updated successfully";
+            // Refresh the page to show updated data
+            header("Location: leave-details.php?leaveid=" . $leaveid . "&success=1");
+            exit();
+        }
+    } catch(Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// Show success message from redirect
+if(isset($_GET['success'])) {
+    $success = "Leave updated successfully";
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -295,41 +428,40 @@
         <tbody>
           <tr>
             <td class="label">Employee Name:</td>
-            <td class="value">John Doe</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['FirstName'] . ' ' . $leaveDetails['LastName']); ?></td>
             <td class="label">Emp ID:</td>
-            <td class="value">7856214</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['EmpId']); ?></td>
             <td class="label">Gender:</td>
-            <td class="value">Male</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['Gender']); ?></td>
           </tr>
           <tr>
             <td class="label">Emp Email ID:</td>
-            <td class="value">jhn12@gmail.com</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['EmailId']); ?></td>
             <td class="label">Emp Contact No.:</td>
-            <td class="value">23232323</td>
+            <td class="value"><?php echo htmlspecialchars($leaveDetails['Phonenumber']); ?></td>
             <td></td><td></td>
           </tr>
           <tr>
   <td class="label">Leave Type:</td>
-  <td class="value">Casual Leaves</td>
-  <td class="label">Leave Date:</td>
-  <td class="value">09/09/2024 - 15/09/2024</td>
+  <td class="value"><?php echo htmlspecialchars($leaveDetails['LeaveType']); ?></td>  <td class="label">Leave Date:</td>
+  <td class="value"><?php echo htmlspecialchars(date('d/m/Y', strtotime($leaveDetails['FromDate'])) . ' - ' . htmlspecialchars(date('d/m/Y', strtotime($leaveDetails['ToDate'])))); ?></td>
   <td class="label">Posting Date:</td>
-  <td class="value">2024-09-12 17:42:40</td>
+  <td class="value"><?php echo htmlspecialchars(date('Y-m-d H:i:s', strtotime($leaveDetails['PostingDate']))); ?></td>
 </tr>
 <tr>
   <td colspan="6">
     <div class="d-flex flex-wrap gap-3">
       <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
         <div class="label">Max Allowed (per year)</div>
-        <div class="value fs-5 fw-semibold text-primary">10</div>
+        <div class="value fs-5 fw-semibold text-primary"><?php echo htmlspecialchars($maxAllowed); ?></div>
       </div>
       <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
         <div class="label">Requested So Far</div>
-        <div class="value fs-5 fw-semibold text-warning">3</div>
+        <div class="value fs-5 fw-semibold text-warning"><?php echo htmlspecialchars($usedLeaves); ?></div>
       </div>
       <div class="p-3 bg-light rounded shadow-sm flex-fill text-center">
         <div class="label">Remaining</div>
-        <div class="value fs-5 fw-semibold text-success">7</div>
+        <div class="value fs-5 fw-semibold text-success"><?php echo htmlspecialchars($remainingLeaves); ?></div>
       </div>
     </div>
   </td>
@@ -343,21 +475,19 @@
 
       <table class="table table-borderless mt-3">
         <tbody>
-          <tr>
-            <td class="label">Leave Description:</td>
-            <td class="value" colspan="5">Need casual leaves for some personal work.</td>
+          <tr>            <td class="label">Leave Description:</td>
+            <td class="value" colspan="5"><?php echo htmlspecialchars($leaveDetails['Description']); ?></td>
           </tr>
           <tr>
             <td class="label">Leave Status:</td>
-            <td colspan="5"><span class="badge bg-success text-white">Approved</span></td>
+            <td colspan="5"><span class="badge <?php echo htmlspecialchars($leaveDetails['StatusClass']); ?> text-white"><?php echo htmlspecialchars($leaveDetails['StatusText']); ?></span></td>
           </tr>
           <tr>
             <td class="label">Admin Remark:</td>
-            <td class="value" colspan="5">Leave approved</td>
+            <td class="value" colspan="5"><?php echo htmlspecialchars($leaveDetails['AdminRemark']); ?></td>
           </tr>
-          <tr>
-            <td class="label">Admin Action Taken Date:</td>
-            <td class="value" colspan="5">2024-09-13 20:39:40</td>
+          <tr>            <td class="label">Admin Action Taken Date:</td>
+            <td class="value" colspan="5"><?php echo !empty($leaveDetails['AdminRemarkDate']) ? htmlspecialchars(date('Y-m-d H:i:s', strtotime($leaveDetails['AdminRemarkDate']))) : 'Not Available'; ?></td>
           </tr>
           <tr>
             <td colspan="6">

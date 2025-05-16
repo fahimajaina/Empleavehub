@@ -11,7 +11,7 @@ if (!isset($_SESSION['alogin'])) {
 
 // Fetch all leaves with employee and leave type details
 $sql = "SELECT l.id, l.PostingDate, l.Status, 
-        e.FirstName, e.LastName, e.EmpId,
+        e.id as employee_id, e.FirstName, e.LastName, e.EmpId,
         lt.LeaveType 
         FROM tblleaves l
         JOIN tblemployees e ON l.empid = e.id
@@ -399,9 +399,8 @@ function getStatusText($status) {
               $statusClass = getStatusBadgeClass($leave['Status']);
               $statusText = getStatusText($leave['Status']);
           ?>
-            <tr>
-              <td><?php echo $cnt++; ?></td>
-              <td><a href="editemployee.php?empid=<?php echo htmlspecialchars($leave['EmpId']); ?>"><?php echo $empName; ?></a></td>
+            <tr>              <td><?php echo $cnt++; ?></td>
+              <td><a href="editemployee.php?id=<?php echo htmlspecialchars($leave['employee_id']); ?>"><?php echo $empName; ?></a></td>
               <td><?php echo htmlspecialchars($leave['LeaveType']); ?></td>
               <td><?php echo htmlspecialchars($leave['PostingDate']); ?></td>
               <td><span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></td>
