@@ -343,7 +343,8 @@ try {
     <div class="row justify-content-center">
       <div class="col-md-6">
         <div class="card shadow-sm">
-          <h3 class="text-heading mb-4">Change Password</h3>          <?php if($error): ?>
+          <h3 class="text-heading mb-4">Change Password</h3> 
+          <?php if($error): ?>
           <div class="alert alert-danger alert-dismissible fade show mb-4">
             <?php echo htmlentities($error); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
