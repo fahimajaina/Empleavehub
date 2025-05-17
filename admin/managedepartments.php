@@ -29,9 +29,8 @@ if (isset($_GET['del'])) {
         $sql = "DELETE FROM tbldepartments WHERE id=:deptId";
         $stmt = $dbh->prepare($sql);
         $stmt->bindParam(':deptId', $deptId, PDO::PARAM_INT);
-        
-        if ($stmt->execute()) {
-            $_SESSION['msg'] = "Department deleted successfully";
+          if ($stmt->execute()) {
+            $_SESSION['success'] = "Department deleted successfully";  // Changed from 'msg' to 'success'
         } else {
             $_SESSION['error'] = "Error deleting department";
         }
@@ -50,11 +49,6 @@ try {
     $_SESSION['error'] = "Error: " . $e->getMessage();
     $departments = [];
 }
-
-// Get messages from session
-$error = isset($_SESSION['error']) ? $_SESSION['error'] : null;
-$success = isset($_SESSION['success']) ? $_SESSION['success'] : null;
-unset($_SESSION['error'], $_SESSION['success']); // Clear messages after retrieving
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -322,21 +316,20 @@ unset($_SESSION['error'], $_SESSION['success']); // Clear messages after retriev
     <i class="material-icons me-2" style="color: #7AC6D2;">apartment</i> Manage Departments
   </h2>
 
-  <?php 
-  // Display Messages
+  <?php   // Display Messages
   if(isset($_SESSION['error'])) {
       echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
-              '.$_SESSION['error'].'
+              '.htmlentities($_SESSION['error']).'
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>';
       unset($_SESSION['error']);
   }
-  if(isset($_SESSION['msg'])) {
+  if(isset($_SESSION['success'])) {  // Changed from 'msg' to 'success' for consistency
       echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
-              '.$_SESSION['msg'].'
+              '.htmlentities($_SESSION['success']).'
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>';
-      unset($_SESSION['msg']);
+      unset($_SESSION['success']);
   }
 
   // Fetch Departments
