@@ -1,3 +1,47 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+$leaves = array();
+
+// Fetch all not approved leave applications with employee and leave type details
+try {
+    $sql = "SELECT l.id, l.PostingDate, e.id as empid, e.FirstName, e.LastName, e.EmpId, lt.LeaveType
+            FROM tblleaves l
+            INNER JOIN tblemployees e ON l.empid = e.id
+            INNER JOIN tblleavetype lt ON l.LeaveTypeID = lt.id
+            WHERE l.Status = 2
+            ORDER BY l.PostingDate DESC";
+            
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $leaves = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error = "Error fetching leave applications: " . $e->getMessage();
+}
+
+// Get messages from session if any
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $error = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -316,7 +360,7 @@
         <thead>
           <tr class="text-secondary">
             <th>#</th>
-            <th>Employe Name</th>
+            <th>Employee Name</th>
             <th>Leave Type</th>
             <th>Posting Date</th>
             <th>Status</th>
@@ -324,30 +368,26 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td><a href="editemployee.php">John Doe(7856214)</a></td>
-            <td>Casual Leave</td>
-            <td>2024-09-12 17:42:40</td>
-            <td><span class="badge bg-danger">Not Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
-          <tr>
-            <td>2</td>
-            <td><a href="editemployee.php">Rahul Kumar(7856214)</a></td>
-            <td>Sick Leave</td>
-            <td>2025-02-12 01:14:42</td>
-            <td><span class="badge bg-danger">Not Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
-          <tr>
-            <td>3</td>
-            <td><a href="editemployee.php">Rahul Kumar(7856214)</a></td>
-            <td>Emergency Leave</td>
-            <td>2024-11-28 10:30:00</td>
-            <td><span class="badge bg-danger">Not Approved</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
+          <?php 
+          if (!empty($leaves)) {
+              $count = 1;
+              foreach($leaves as $leave) {
+                  echo '<tr>';
+                  echo '<td>' . $count . '</td>';
+                  echo '<td><a href="editemployee.php?id=' . htmlspecialchars($leave['empid']) . '">' 
+                      . htmlspecialchars($leave['FirstName'] . ' ' . $leave['LastName']) 
+                      . ' (' . htmlspecialchars($leave['EmpId']) . ')</a></td>';
+                  echo '<td>' . htmlspecialchars($leave['LeaveType']) . '</td>';
+                  echo '<td>' . htmlspecialchars(date('Y-m-d H:i:s', strtotime($leave['PostingDate']))) . '</td>';
+                  echo '<td><span class="badge bg-danger">Not Approved</span></td>';
+                  echo '<td><a href="leave-details.php?leaveid=' . htmlspecialchars($leave['id']) . '" class="btn btn-sm btn-outline-primary">View</a></td>';
+                  echo '</tr>';
+                  $count++;
+              }
+          } else {
+              echo '<tr><td colspan="6" class="text-center">No not approved leave applications found</td></tr>';
+          }
+          ?>
         </tbody>
       </table>
     </div>
