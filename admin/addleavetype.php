@@ -11,6 +11,16 @@ if (!isset($_SESSION['alogin'])) {
 $error = '';
 $success = '';
 
+// Get messages from session if any
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $error = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -44,17 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $query->bindParam(':leaveType', $leaveType, PDO::PARAM_STR);
         $query->bindParam(':description', $description, PDO::PARAM_STR);
         $query->bindParam(':maxAllowed', $maxAllowed, PDO::PARAM_INT);
-        
-        if ($query->execute()) {
-            $success = "Leave type added successfully";
-            // Redirect to the same page to prevent form resubmission
-                header("Location: addleavetype.php");
-                exit();
+          if ($query->execute()) {
+            $_SESSION['success'] = "Leave type added successfully";
+            header("Location: addleavetype.php");
+            exit();
         } else {
             throw new Exception("Something went wrong. Please try again");
-        }
-    } catch (Exception $e) {
-        $error = $e->getMessage();
+        }    } catch (Exception $e) {
+        $_SESSION['error'] = $e->getMessage();
+        header("Location: addleavetype.php");
+        exit();
     }
 }
 ?>
