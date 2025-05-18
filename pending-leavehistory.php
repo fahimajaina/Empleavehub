@@ -1,3 +1,52 @@
+<?php
+session_start();
+require_once('include/config.php');
+
+// Check if employee is logged in
+if (!isset($_SESSION['eid'])) {
+    header('location: index.php');
+    exit();
+}
+
+$empid = $_SESSION['eid'];
+$error = '';
+$success = '';
+$leaves = array();
+$employee = array();
+
+try {
+    // Fetch employee details for sidebar
+    $sql = "SELECT FirstName, LastName, EmpId FROM tblemployees WHERE id = :empid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+    $query->execute();
+    $employee = $query->fetch(PDO::FETCH_ASSOC);
+
+    // Fetch pending leaves
+    $sql = "SELECT l.*, lt.LeaveType 
+            FROM tblleaves l
+            LEFT JOIN tblleavetype lt ON l.LeaveTypeID = lt.id
+            WHERE l.empid = :empid AND l.Status = 0
+            ORDER BY l.PostingDate DESC";
+    
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
+    $query->execute();
+    $leaves = $query->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error = "Error: " . $e->getMessage();
+}
+
+// Get messages from session if any
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $error = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -236,8 +285,8 @@
   <div class="sidebar-content">
     <div class="text-center py-4">
       <img src="assets/images/profile-image.png" class="rounded-circle mb-2" width="80" alt="Profile Image">
-      <h6 class="mb-0" style="font-weight:600;">John Doe</h6>
-      <small class="text-muted">EMP12345</small>
+      <h6 class="mb-0" style="font-weight:600;"><?php echo htmlentities($employee['FirstName'] . ' ' . $employee['LastName']); ?></h6>
+      <small class="text-muted"><?php echo htmlentities($employee['EmpId']); ?></small>
     </div>
     <hr class="mx-3">
 
@@ -290,15 +339,25 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td>Casual Leave</td>
-            <td>2024-09-09</td>
-            <td>2024-09-15</td>
-            <td>2024-09-12 17:42:40</td>
-            <td><span class="badge bg-warning text-dark">Pending</span></td>
-            <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
+          <?php 
+          if (!empty($leaves)) {
+              $cnt = 1;
+              foreach($leaves as $leave) {
+                  echo '<tr>';
+                  echo '<td>' . $cnt . '</td>';
+                  echo '<td>' . htmlentities($leave['LeaveType']) . '</td>';
+                  echo '<td>' . htmlentities(date('Y-m-d', strtotime($leave['FromDate']))) . '</td>';
+                  echo '<td>' . htmlentities(date('Y-m-d', strtotime($leave['ToDate']))) . '</td>';
+                  echo '<td>' . htmlentities(date('Y-m-d H:i:s', strtotime($leave['PostingDate']))) . '</td>';
+                  echo '<td><span class="badge bg-warning text-dark">Pending</span></td>';
+                  echo '<td><a href="leave-details.php?leaveid=' . htmlentities($leave['id']) . '" class="btn btn-sm btn-outline-primary">View</a></td>';
+                  echo '</tr>';
+                  $cnt++;
+              }
+          } else {
+              echo '<tr><td colspan="7" class="text-center">No pending leave applications found</td></tr>';
+          }
+          ?>
         </tbody>
       </table>
     </div>
