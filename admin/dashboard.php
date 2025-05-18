@@ -1,3 +1,85 @@
+<?php
+// Start the session
+session_start();
+
+// Include database connection
+require_once('includes/config.php');
+
+// Check if admin is logged in
+if (!isset($_SESSION['alogin'])) {
+    header('location:index.php');
+    exit();
+}
+
+// Initialize variables
+$error = '';
+$success = '';
+$stats = array();
+$latestLeaves = array();
+
+try {
+    // Get total employees count
+    $sql = "SELECT COUNT(*) as total FROM tblemployees";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['employees'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get total departments count
+    $sql = "SELECT COUNT(*) as total FROM tbldepartments";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['departments'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get total leave types count
+    $sql = "SELECT COUNT(*) as total FROM tblleavetype";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['leaveTypes'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get total leaves count
+    $sql = "SELECT COUNT(*) as total FROM tblleaves";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['totalLeaves'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get approved leaves count
+    $sql = "SELECT COUNT(*) as total FROM tblleaves WHERE Status = 1";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['approvedLeaves'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get pending leaves count
+    $sql = "SELECT COUNT(*) as total FROM tblleaves WHERE Status = 0";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $stats['pendingLeaves'] = $query->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get latest leave applications
+    $sql = "SELECT l.id, l.PostingDate, l.Status, 
+            e.FirstName, e.LastName, lt.LeaveType
+            FROM tblleaves l
+            INNER JOIN tblemployees e ON l.empid = e.id
+            INNER JOIN tblleavetype lt ON l.LeaveTypeID = lt.id
+            ORDER BY l.PostingDate DESC LIMIT 5";
+    
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $latestLeaves = $query->fetchAll(PDO::FETCH_ASSOC);
+
+} catch(PDOException $e) {
+    $error = "Database Error: " . $e->getMessage();
+}
+
+// Get messages from session if any
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $error = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -287,7 +369,7 @@
         <a href="manageemployee.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>Total Registered Employees</h5>
-            <p class="fs-4">150</p>
+            <p class="fs-4"><?php echo htmlentities($stats['employees']); ?></p>
           </div>
         </a>
       </div>
@@ -295,7 +377,7 @@
         <a href="managedepartments.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>Listed Departments</h5>
-            <p class="fs-4">12</p>
+            <p class="fs-4"><?php echo htmlentities($stats['departments']); ?></p>
           </div>
         </a>
       </div>
@@ -303,7 +385,7 @@
         <a href="manageleavetype.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>Listed Leave Types</h5>
-            <p class="fs-4">5</p>
+            <p class="fs-4"><?php echo htmlentities($stats['leaveTypes']); ?></p>
           </div>
         </a>
       </div>
@@ -311,7 +393,7 @@
         <a href="leaves.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>Total Leaves</h5>
-            <p class="fs-4">320</p>
+            <p class="fs-4"><?php echo htmlentities($stats['totalLeaves']); ?></p>
           </div>
         </a>
       </div>
@@ -319,7 +401,7 @@
         <a href="approvedleave-history.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>Approved Leaves</h5>
-            <p class="fs-4">280</p>
+            <p class="fs-4"><?php echo htmlentities($stats['approvedLeaves']); ?></p>
           </div>
         </a>
       </div>
@@ -327,7 +409,7 @@
         <a href="pending-leavehistory.php" class="card text-white" style="background-color:rgb(99, 175, 205);">
           <div class="card-body">
             <h5>New Leave Applications</h5>
-            <p class="fs-4">10</p>
+            <p class="fs-4"><?php echo htmlentities($stats['pendingLeaves']); ?></p>
           </div>
         </a>
       </div>
@@ -349,27 +431,42 @@
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>1</td>
-                <td>John Doe</td>
-                <td>Vacation</td>
-                <td><span class="badge badge-approved">Approved</span></td>
-                <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-              </tr>
-              <tr>
-                <td>2</td>
-                <td>Jane Smith</td>
-                <td>Sick Leave</td>
-                <td><span class="badge badge-pending">Pending</span></td>
-                <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-              </tr>
-              <tr>
-                <td>3</td>
-                <td>Michael Lee</td>
-                <td>Personal Leave</td>
-                <td><span class="badge badge-rejected">Rejected</span></td>
-                <td><a href="leave-details.php" class="btn btn-sm btn-outline-primary">View</a></td>
-              </tr>
+              <?php 
+              if (!empty($latestLeaves)) {
+                  $cnt = 1;
+                  foreach($latestLeaves as $leave) {
+                      $statusClass = '';
+                      $statusText = '';
+                      
+                      switch($leave['Status']) {
+                          case 1:
+                              $statusClass = 'badge-approved';
+                              $statusText = 'Approved';
+                              break;
+                          case 2:
+                              $statusClass = 'badge-rejected';
+                              $statusText = 'Not Approved';
+                              break;
+                          default:
+                              $statusClass = 'badge-pending';
+                              $statusText = 'Pending';
+                      }
+                      ?>
+                      <tr>
+                          <td><?php echo $cnt; ?></td>
+                          <td><?php echo htmlentities($leave['FirstName'] . ' ' . $leave['LastName']); ?></td>
+                          <td><?php echo htmlentities($leave['LeaveType']); ?></td>
+                          <td><span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></td>
+                          <td><a href="leave-details.php?leaveid=<?php echo htmlentities($leave['id']); ?>" class="btn btn-sm btn-outline-primary">View</a></td>
+                      </tr>
+                      <?php
+                      $cnt++;
+                  }
+              } else { ?>
+                  <tr>
+                      <td colspan="5" class="text-center">No leave applications found</td>
+                  </tr>
+              <?php } ?>
             </tbody>
           </table>
         </div>
