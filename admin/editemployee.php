@@ -61,7 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $department = intval($_POST['department']);
         $address = trim($_POST['address']);
         $city = trim($_POST['city']);
-        $country = trim($_POST['country']);        // Validation        if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
+        $country = trim($_POST['country']);        
+        
+        // Validation
+        if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
             $error = "All fields are required";
         } 
         // First name validation (3-50 characters, letters only)
@@ -532,12 +535,13 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
         alert("Address is too long. Maximum 200 characters allowed");
         e.preventDefault();
         return false;
-    }
-    if (!/^[a-zA-Z0-9\s,.\/-]+$/.test(address)) {
+    }    if (!/^[a-zA-Z0-9\s,.\/-]+$/.test(address)) {
         alert("Address contains invalid characters");
         e.preventDefault();
         return false;
-    }    // City validation
+    }    
+    
+    // City validation
     if (!nameRegex.test(city)) {
         alert("City name must contain only letters and be between 3-50 characters");
         e.preventDefault();
