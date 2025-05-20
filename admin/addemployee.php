@@ -30,12 +30,12 @@ function generateEmpId($dbh) {
 
 // Function to validate name
 function validateName($name) {
-    return preg_match("/^[a-zA-Z ]{2,50}$/", $name);
+    return preg_match("/^[a-zA-Z ]{3,50}$/", $name);
 }
 
 // Function to validate phone number
 function validatePhone($phone) {
-    return preg_match("/^[0-9]{10,11}$/", $phone);
+    return preg_match("/^[0-9]{11}$/", $phone);
 }
 
 // Function to validate password strength
@@ -67,15 +67,15 @@ if (isset($_POST['add'])) {
 
         // Validate first name and last name
         if (!validateName($fname)) {
-            throw new Exception("First name should only contain letters and be between 2-50 characters");
+            throw new Exception("First name should only contain letters and be between 3-50 characters");
         }
         if (!validateName($lname)) {
-            throw new Exception("Last name should only contain letters and be between 2-50 characters");
+            throw new Exception("Last name should only contain letters and be between 3-50 characters");
         }
 
         // Validate email format
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new Exception("Invalid email format");
+            throw new Exception("Please enter a valid email address");
         }
 
         // Check if email already exists
@@ -87,7 +87,7 @@ if (isset($_POST['add'])) {
 
         // Validate phone number
         if (!validatePhone($mobileno)) {
-            throw new Exception("Invalid phone number format. Must be 10-11 digits");
+            throw new Exception("Invalid phone number format. Must be 11 digits");
         }
 
         // Validate password
@@ -131,16 +131,16 @@ if (isset($_POST['add'])) {
         if (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
             throw new Exception("City name must contain only letters");
         }
-        if (strlen($city) < 2 || strlen($city) > 50) {
-            throw new Exception("City name must be between 2 and 50 characters");
+        if (strlen($city) < 3 || strlen($city) > 50) {
+            throw new Exception("City name must be between 3 and 50 characters");
         }
 
         // Country validation
         if (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
             throw new Exception("Country name must contain only letters");
         }
-        if (strlen($country) < 2 || strlen($country) > 50) {
-            throw new Exception("Country name must be between 2 and 50 characters");
+        if (strlen($country) < 3 || strlen($country) > 50) {
+            throw new Exception("Country name must be between 3 and 50 characters");
         }
 
         // Validate DOB (must be at least 18 years old)
@@ -547,13 +547,13 @@ function validateForm() {
     const dob = document.getElementById('birthdate').value;
 
     // Name validation
-    const nameRegex = /^[a-zA-Z ]{2,50}$/;
+    const nameRegex = /^[a-zA-Z ]{3,50}$/;
     if (!nameRegex.test(firstName)) {
-        alert("First name should only contain letters and be between 2-50 characters");
+        alert("First name should only contain letters and be between 3-50 characters");
         return false;
     }
     if (!nameRegex.test(lastName)) {
-        alert("Last name should only contain letters and be between 2-50 characters");
+        alert("Last name should only contain letters and be between 3-50 characters");
         return false;
     }
 
@@ -565,27 +565,27 @@ function validateForm() {
     }
 
     // Phone validation
-    const phoneRegex = /^[0-9]{10,11}$/;
+    const phoneRegex = /^[0-9]{11}$/;
     if (!phoneRegex.test(phone)) {
-        alert("Phone number must be 10-11 digits");
+        alert("Invalid phone number format. Must be 11 digits");
         return false;
     }
 
     // Password validation
     if (password.length < 8) {
-        alert("Password must be at least 8 characters long");
+        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }
     if (!/[A-Z]/.test(password)) {
-        alert("Password must contain at least one uppercase letter");
+        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }
     if (!/[a-z]/.test(password)) {
-        alert("Password must contain at least one lowercase letter");
+        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }
     if (!/[0-9]/.test(password)) {
-        alert("Password must contain at least one number");
+        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }
 
@@ -593,16 +593,32 @@ function validateForm() {
     if (password !== confirmPassword) {
         alert("Passwords do not match");
         return false;
-    }
-
-    // Age validation (must be 18+)
+    }    // Date of Birth validations
     const dobDate = new Date(dob);
     const today = new Date();
-    const age = today.getFullYear() - dobDate.getFullYear();
-    const monthDiff = today.getMonth() - dobDate.getMonth();
     
-    if (age < 18 || (age === 18 && monthDiff < 0)) {
+    // Check if date is in the future
+    if (dobDate > today) {
+        alert("Date of Birth cannot be in the future");
+        return false;
+    }
+
+    // Calculate age
+    let age = today.getFullYear() - dobDate.getFullYear();
+    const monthDiff = today.getMonth() - dobDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+    }
+
+    // Check if at least 18 years old
+    if (age < 18) {
         alert("Employee must be at least 18 years old");
+        return false;
+    }
+
+    // Check if date is more than 100 years ago
+    if (age > 100) {
+        alert("Please enter a valid Date of Birth");
         return false;
     }
 
