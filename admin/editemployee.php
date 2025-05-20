@@ -130,9 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $query->bindParam(':address', $address, PDO::PARAM_STR);
                     $query->bindParam(':city', $city, PDO::PARAM_STR);
                     $query->bindParam(':country', $country, PDO::PARAM_STR);
-                    $query->bindParam(':empid', $empid, PDO::PARAM_INT);
-
-                    if ($query->execute()) {
+                    $query->bindParam(':empid', $empid, PDO::PARAM_INT);                    if ($query->execute()) {
                         $success = 'Employee record updated successfully';
                     } else {
                         $error = 'Something went wrong. Please try again';
@@ -140,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (PDOException $e) {
                     $error = 'Database Error: ' . $e->getMessage();
                 }
-            }        }
+            }
     }
 }
 ?>
