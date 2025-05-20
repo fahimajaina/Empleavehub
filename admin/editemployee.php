@@ -61,16 +61,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $department = intval($_POST['department']);
         $address = trim($_POST['address']);
         $city = trim($_POST['city']);
-        $country = trim($_POST['country']);        // Validation
-        if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
+        $country = trim($_POST['country']);        // Validation        if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
             $error = "All fields are required";
-        } elseif (!preg_match("/^[a-zA-Z\s]+$/", $firstName)) {
-            $error = "First Name must contain only letters";
-        } elseif (!preg_match("/^[a-zA-Z\s]+$/", $lastName)) {
-            $error = "Last Name must contain only letters";
-        } elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
-            $error = "Mobile number must be 11 digits";
         } 
+        // First name validation (3-50 characters, letters only)
+        elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $firstName)) {
+            $error = "First name should only contain letters and be between 3-50 characters";
+        }
+        // Last name validation (3-50 characters, letters only)
+        elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $lastName)) {
+            $error = "Last name should only contain letters and be between 3-50 characters";
+        }
+        // Phone validation (11 digits)
+        elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
+            $error = "Invalid phone number format. Must be 11 digits";
+        }
         // Check for duplicate mobile number
         elseif ($mobileno !== $employee['Phonenumber']) {
             $sql = "SELECT COUNT(*) FROM tblemployees WHERE Phonenumber = :mobileno AND id != :empid";
@@ -98,24 +103,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
             $error = "Address contains invalid characters";
         }
-        // City validation
-        elseif (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
+        // City validation (3-50 characters, letters only)
+        elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $city)) {
             $error = "City name must contain only letters";
-        } elseif (strlen($city) < 2 || strlen($city) > 50) {
-            $error = "City name must be between 2 and 50 characters";
+        } elseif (strlen($city) < 3 || strlen($city) > 50) {
+            $error = "City name must be between 3 and 50 characters";
         }
-        // Country validation
-        elseif (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
-            $error = "Country name must contain only letters";
-        } elseif (strlen($country) < 2 || strlen($country) > 50) {
-            $error = "Country name must be between 2 and 50 characters";
+        // Country validation (3-50 characters, letters only)
+        elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $country)) {
+            $error = "Country name must contain only letters";        } elseif (strlen($country) < 3 || strlen($country) > 50) {
+            $error = "Country name must be between 3 and 50 characters";
         } else {
-            
-            if ($age < 18) {
-                $error = 'Employee must be at least 18 years old';
-            } else {
-                try {
-                    // Update employee information
+            try {
+                // Update employee information
                     $sql = "UPDATE tblemployees SET FirstName=:firstName, LastName=:lastName, 
                             Phonenumber=:mobileno, Gender=:gender, Dob=:dob, Department=:department, 
                             Address=:address, City=:city, Country=:country 
@@ -497,40 +497,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- Client-side validation -->
 <script>
 document.getElementById('updateEmployeeForm').addEventListener('submit', function(e) {
-  const firstName = document.getElementById('firstName').value.trim();
-  const lastName = document.getElementById('lastName').value.trim();
-  const phone = document.getElementById('phone').value.trim();
-  const dob = new Date(document.getElementById('birthdate').value);
-  const today = new Date();
-  const age = today.getFullYear() - dob.getFullYear();
-  let isValid = true;
-  let errorMessage = '';
+    // Get form values
+    const firstName = document.getElementById('firstName').value.trim();
+    const lastName = document.getElementById('lastName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const address = document.getElementById('address').value.trim();
+    const city = document.getElementById('city').value.trim();
+    const country = document.getElementById('country').value.trim();
+    const dob = document.getElementById('birthdate').value;
+    
+    // Name validation (3-50 characters, letters only)
+    const nameRegex = /^[a-zA-Z ]{3,50}$/;
+    if (!nameRegex.test(firstName)) {
+        alert("First name should only contain letters and be between 3-50 characters");
+        e.preventDefault();
+        return false;
+    }
+    if (!nameRegex.test(lastName)) {
+        alert("Last name should only contain letters and be between 3-50 characters");
+        e.preventDefault();
+        return false;
+    }
 
-  // Name validation
-  if (!/^[a-zA-Z ]*$/.test(firstName)) {
-    errorMessage = 'First name should contain only letters';
-    isValid = false;
-  } else if (!/^[a-zA-Z ]*$/.test(lastName)) {
-    errorMessage = 'Last name should contain only letters';
-    isValid = false;
-  }
+    // Phone validation (11 digits)
+    if (!/^[0-9]{11}$/.test(phone)) {
+        alert("Invalid phone number format. Must be 11 digits");
+        e.preventDefault();
+        return false;
+    }
 
-  // Phone validation
-  if (!/^[0-9]{10,11}$/.test(phone)) {
-    errorMessage = 'Mobile number should be 10-11 digits';
-    isValid = false;
-  }
+    // Address validation
+    if (address.length < 5) {
+        alert("Address is too short. Minimum 5 characters required");
+        e.preventDefault();
+        return false;
+    }
+    if (address.length > 200) {
+        alert("Address is too long. Maximum 200 characters allowed");
+        e.preventDefault();
+        return false;
+    }
+    if (!/^[a-zA-Z0-9\s,.\/-]+$/.test(address)) {
+        alert("Address contains invalid characters");
+        e.preventDefault();
+        return false;
+    }
 
-  // Age validation
-  if (age < 18) {
-    errorMessage = 'Employee must be at least 18 years old';
-    isValid = false;
-  }
+    // City validation
+    if (!nameRegex.test(city)) {
+        alert("City name must contain only letters and be between 3-50 characters");
+        e.preventDefault();
+        return false;
+    }
+    if (city.length < 3 || city.length > 50) {
+        alert("City name must be between 3 and 50 characters");
+        e.preventDefault();
+        return false;
+    }
 
-  if (!isValid) {
-    e.preventDefault();
-    alert(errorMessage);
-  }
+    // Country validation
+    if (!nameRegex.test(country)) {
+        alert("Country name must contain only letters and be between 3-50 characters");
+        e.preventDefault();
+        return false;
+    }
+    if (country.length < 3 || country.length > 50) {
+        alert("Country name must be between 3 and 50 characters");
+        e.preventDefault();
+        return false;
+    }
+
+    // Date of Birth validations
+    const dobDate = new Date(dob);
+    const today = new Date();
+    
+    // Check if date is in the future
+    if (dobDate > today) {
+        alert("Date of Birth cannot be in the future");
+        e.preventDefault();
+        return false;
+    }
+
+    // Calculate age
+    let age = today.getFullYear() - dobDate.getFullYear();
+    const monthDiff = today.getMonth() - dobDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+    }
+
+    // Check if at least 18 years old
+    if (age < 18) {
+        alert("Employee must be at least 18 years old");
+        e.preventDefault();
+        return false;
+    }
+
+    // Check if date is more than 100 years ago
+    if (age > 100) {
+        alert("Please enter a valid Date of Birth");
+        e.preventDefault();
+        return false;
+    }
+
+    return true;
 });
 
 // Sidebar toggle
