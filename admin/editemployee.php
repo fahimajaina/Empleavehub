@@ -102,17 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Address is too long. Maximum 200 characters allowed";
         } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
             $error = "Address contains invalid characters";
-        }
-        // City validation (3-50 characters, letters only)
+        }        // City validation (3-50 characters, letters only)
         elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $city)) {
-            $error = "City name must contain only letters";
-        } elseif (strlen($city) < 3 || strlen($city) > 50) {
-            $error = "City name must be between 3 and 50 characters";
+            $error = "City name must contain only letters and be between 3-50 characters";
         }
         // Country validation (3-50 characters, letters only)
         elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $country)) {
-            $error = "Country name must contain only letters";        } elseif (strlen($country) < 3 || strlen($country) > 50) {
-            $error = "Country name must be between 3 and 50 characters";
+            $error = "Country name must contain only letters and be between 3-50 characters";
         } else {
             try {
                 // Update employee information
@@ -541,16 +537,9 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
         alert("Address contains invalid characters");
         e.preventDefault();
         return false;
-    }
-
-    // City validation
+    }    // City validation
     if (!nameRegex.test(city)) {
         alert("City name must contain only letters and be between 3-50 characters");
-        e.preventDefault();
-        return false;
-    }
-    if (city.length < 3 || city.length > 50) {
-        alert("City name must be between 3 and 50 characters");
         e.preventDefault();
         return false;
     }
@@ -558,11 +547,6 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
     // Country validation
     if (!nameRegex.test(country)) {
         alert("Country name must contain only letters and be between 3-50 characters");
-        e.preventDefault();
-        return false;
-    }
-    if (country.length < 3 || country.length > 50) {
-        alert("Country name must be between 3 and 50 characters");
         e.preventDefault();
         return false;
     }
