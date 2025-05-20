@@ -324,19 +324,13 @@ try {
             </div>';
       unset($_SESSION['error']);
   }
-  if(isset($_SESSION['success'])) {  // Changed from 'msg' to 'success' for consistency
+  if(isset($_SESSION['success'])) { 
       echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
               '.htmlentities($_SESSION['success']).'
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>';
       unset($_SESSION['success']);
   }
-
-  // Fetch Departments
-  $sql = "SELECT * FROM tbldepartments ORDER BY DepartmentName ASC";
-  $query = $dbh->prepare($sql);
-  $query->execute();
-  $departments = $query->fetchAll(PDO::FETCH_OBJ);
   ?>
 
   <div class="card p-4">
@@ -357,21 +351,20 @@ try {
             <th>Action</th>
           </tr>
         </thead>
-        <tbody>
-          <?php 
-          if($query->rowCount() > 0) {
+        <tbody>          <?php 
+          if(!empty($departments)) {
               $cnt = 1;
               foreach($departments as $dept) {
           ?>
           <tr>
             <td><?php echo htmlentities($cnt);?></td>
-            <td><?php echo htmlentities($dept->DepartmentName);?></td>
-            <td><?php echo htmlentities($dept->DepartmentShortName);?></td>
-            <td><?php echo htmlentities($dept->DepartmentCode);?></td>
-            <td><?php echo htmlentities($dept->CreationDate);?></td>
+            <td><?php echo htmlentities($dept['DepartmentName']);?></td>
+            <td><?php echo htmlentities($dept['DepartmentShortName']);?></td>
+            <td><?php echo htmlentities($dept['DepartmentCode']);?></td>
+            <td><?php echo htmlentities($dept['CreationDate']);?></td>
             <td>
-              <a href="editdepartment.php?id=<?php echo htmlentities($dept->id);?>" class="btn btn-view btn-action me-1">Edit</a>
-              <a href="managedepartments.php?del=<?php echo htmlentities($dept->id);?>" class="btn btn-danger btn-action" 
+              <a href="editdepartment.php?id=<?php echo htmlentities($dept['id']);?>" class="btn btn-view btn-action me-1">Edit</a>
+              <a href="managedepartments.php?del=<?php echo htmlentities($dept['id']);?>" class="btn btn-danger btn-action" 
                  onclick="return confirm('Are you sure you want to delete this department?');">Delete</a>
             </td>
           </tr>
@@ -387,7 +380,7 @@ try {
       </table>
     </div>
 
-    <p class="text-muted mt-3">Showing <?php echo $query->rowCount();?> entries</p>
+    <p class="text-muted mt-3">Showing <?php echo count($departments);?> entries</p>
   </div>
 </div>
 
