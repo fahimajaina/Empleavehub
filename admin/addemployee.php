@@ -125,20 +125,13 @@ if (isset($_POST['add'])) {
         }
         if (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
             throw new Exception("Address contains invalid characters");
+        }        // City validation (3-50 characters, letters only)
+        if (!preg_match("/^[a-zA-Z ]{3,50}$/", $city)) {
+            throw new Exception("City name must contain only letters and be between 3-50 characters");
         }
-
-        // City validation
-        if (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
-            throw new Exception("City name must contain only letters");
-        }
-        if (strlen($city) < 3 || strlen($city) > 50) {
-            throw new Exception("City name must be between 3 and 50 characters");
-        }        // Country validation
-        if (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
-            throw new Exception("Country name must contain only letters");
-        }
-        if (strlen($country) < 3 || strlen($country) > 50) {
-            throw new Exception("Country name must be between 3 and 50 characters");
+        // Country validation (3-50 characters, letters only)
+        if (!preg_match("/^[a-zA-Z ]{3,50}$/", $country)) {
+            throw new Exception("Country name must contain only letters and be between 3-50 characters");
         }
 
         // Hash password
@@ -573,8 +566,7 @@ function validateForm() {
     if (!/[a-z]/.test(password)) {
         alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
-    }
-    if (!/[0-9]/.test(password)) {
+    }    if (!/[0-9]/.test(password)) {
         alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }
@@ -583,7 +575,38 @@ function validateForm() {
     if (password !== confirmPassword) {
         alert("Passwords do not match");
         return false;
-    }    // Date of Birth validations
+    }
+
+    // Address validation
+    const address = document.getElementById('address').value.trim();
+    if (address.length < 5) {
+        alert("Address is too short. Minimum 5 characters required");
+        return false;
+    }
+    if (address.length > 200) {
+        alert("Address is too long. Maximum 200 characters allowed");
+        return false;
+    }
+    if (!/^[a-zA-Z0-9\s,.\/-]+$/.test(address)) {
+        alert("Address contains invalid characters");
+        return false;
+    }
+
+    // City validation
+    const city = document.getElementById('city').value.trim();
+    if (!nameRegex.test(city)) {
+        alert("City name must contain only letters and be between 3-50 characters");
+        return false;
+    }
+
+    // Country validation
+    const country = document.getElementById('country').value.trim();
+    if (!nameRegex.test(country)) {
+        alert("Country name must contain only letters and be between 3-50 characters");
+        return false;
+    }
+
+    // Date of Birth validations
     const dobDate = new Date(dob);
     const today = new Date();
     
