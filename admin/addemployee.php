@@ -439,10 +439,16 @@ try {
   <h4 class="mb-4 heading-colored"><span class="material-icons me-2">edit</span> Add employee</h4>
 
   <?php if ($error): ?>
-    <div class="alert alert-danger"><?php echo $error; ?></div>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <?php echo $error; ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
   <?php endif; ?>
   <?php if ($success): ?>
-    <div class="alert alert-success"><?php echo $success; ?></div>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <?php echo $success; ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
   <?php endif; ?>
 
   <form class="form-section" method="POST" onsubmit="return validateForm();">
