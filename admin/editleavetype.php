@@ -455,7 +455,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-md-6">
-        <div class="card shadow-sm">          <h3 class="text-heading mb-4">Update Leave Type</h3>
+        <div class="card shadow-sm"> 
+         <h3 class="text-heading mb-4">Update Leave Type</h3>
 
           <?php if ($error): ?>
             <div class="custom-alert alert-danger" role="alert">
