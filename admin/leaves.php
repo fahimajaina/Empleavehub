@@ -399,7 +399,8 @@ function getStatusText($status) {
               $statusClass = getStatusBadgeClass($leave['Status']);
               $statusText = getStatusText($leave['Status']);
           ?>
-            <tr>              <td><?php echo $cnt++; ?></td>
+            <tr>   
+              <td><?php echo $cnt++; ?></td>
               <td><a href="editemployee.php?id=<?php echo htmlspecialchars($leave['employee_id']); ?>"><?php echo $empName; ?></a></td>
               <td><?php echo htmlspecialchars($leave['LeaveType']); ?></td>
               <td><?php echo htmlspecialchars($leave['PostingDate']); ?></td>
