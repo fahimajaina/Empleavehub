@@ -542,6 +542,10 @@ function validateForm() {
 
     // Email validation
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email) {
+        alert("Email address is required");
+        return false;
+    }
     if (!emailRegex.test(email)) {
         alert("Please enter a valid email address");
         return false;
@@ -552,21 +556,8 @@ function validateForm() {
     if (!phoneRegex.test(phone)) {
         alert("Invalid phone number format. Must be 11 digits");
         return false;
-    }
-
-    // Password validation
-    if (password.length < 8) {
-        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
-        return false;
-    }
-    if (!/[A-Z]/.test(password)) {
-        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
-        return false;
-    }
-    if (!/[a-z]/.test(password)) {
-        alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
-        return false;
-    }    if (!/[0-9]/.test(password)) {
+    }    // Password validation
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
         alert("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number");
         return false;
     }

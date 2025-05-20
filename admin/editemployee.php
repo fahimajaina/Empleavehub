@@ -504,6 +504,7 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
     const city = document.getElementById('city').value.trim();
     const country = document.getElementById('country').value.trim();
     const dob = document.getElementById('birthdate').value;
+    const email = document.getElementById('email').value.trim();
     
     // Name validation (3-50 characters, letters only)
     const nameRegex = /^[a-zA-Z ]{3,50}$/;
@@ -515,6 +516,17 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
     if (!nameRegex.test(lastName)) {
         alert("Last name should only contain letters and be between 3-50 characters");
         e.preventDefault();
+        return false;
+    }
+
+    // Email validation
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email) {
+        alert("Email address is required");
+        return false;
+    }
+    if (!emailRegex.test(email)) {
+        alert("Please enter a valid email address");
         return false;
     }
 
