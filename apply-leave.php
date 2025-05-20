@@ -98,16 +98,13 @@ if (isset($_POST['apply'])) {
                         $query->bindParam(':todate', $todate, PDO::PARAM_STR);
                         $query->bindParam(':description', $description, PDO::PARAM_STR);
                         $query->bindParam(':status', $status, PDO::PARAM_INT);
-                        $query->bindParam(':empid', $empid, PDO::PARAM_STR);
-                          if($query->execute()) {
+                        $query->bindParam(':empid', $empid, PDO::PARAM_STR);                          if($query->execute()) {
                             $_SESSION['success_msg'] = "Leave application submitted successfully";
-                            header("Location: apply-leave.php");
-                            exit();
                         } else {
                             $_SESSION['error_msg'] = "Something went wrong. Please try again";
-                            header("Location: apply-leave.php");
-                            exit();
-                        }                    }
+                        }
+                        header("Location: apply-leave.php");
+                        exit();}
                 }
             }
         }
@@ -115,32 +112,26 @@ if (isset($_POST['apply'])) {
 }
 
 
-// Fetch available leave types with remaining balance
-$leave_types = array();
-$sql = "SELECT id, LeaveType, max FROM tblleavetype";
+// Fetch available leave types with remaining balance in a single query
+$sql = "SELECT lt.id, lt.LeaveType, lt.max, 
+        COALESCE(COUNT(l.id), 0) as used_count 
+        FROM tblleavetype lt 
+        LEFT JOIN tblleaves l ON lt.id = l.LeaveTypeID 
+            AND l.empid = :empid 
+            AND l.Status = 1 
+        GROUP BY lt.id, lt.LeaveType, lt.max
+        ORDER BY lt.LeaveType";
 $query = $dbh->prepare($sql);
+$query->bindParam(':empid', $empid, PDO::PARAM_STR);
 $query->execute();
-$available_leaves = $query->fetchAll(PDO::FETCH_ASSOC);
-
-foreach($available_leaves as $leave) {
-    // Count how many times this leave type has been used
-    $sql = "SELECT COUNT(*) FROM tblleaves 
-            WHERE LeaveTypeID = :leavetypeid 
-            AND empid = :empid 
-            AND Status = 1"; // 1 = Approved
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':leavetypeid', $leave['id'], PDO::PARAM_INT);
-    $query->bindParam(':empid', $empid, PDO::PARAM_STR);
-    $query->execute();
-    $used_count = $query->fetchColumn();
-    
-    $leave_types[] = array(
+$leave_types = array_map(function($leave) {
+    return array(
         'type' => $leave['LeaveType'],
-        'remaining' => $leave['max'] - $used_count,
-        'used' => $used_count,
+        'remaining' => $leave['max'] - $leave['used_count'],
+        'used' => $leave['used_count'],
         'max' => $leave['max']
     );
-}
+}, $query->fetchAll(PDO::FETCH_ASSOC));
 ?>
 
 <!DOCTYPE html>
@@ -277,9 +268,8 @@ foreach($available_leaves as $leave) {
 
     .main-content.collapsed {
       margin-left: 0;
-    }
-
-    .succWrap, .errorWrap {
+    }    /* Alert styles unified with Bootstrap */
+    .alert {
       padding: 12px 20px;
       margin-bottom: 20px;
       background: #ffffff;
@@ -289,23 +279,22 @@ foreach($available_leaves as $leave) {
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     }
 
-    .succWrap {
+    .alert-success {
       border-color: #28a745;
       color: #155724;
     }
 
-    .errorWrap {
+    .alert-danger {
       border-color: #dc3545;
       color: #721c24;
     }
 
-    .main-content .form-label {
+    /* Form styles consolidated */
+    .form-label, 
+    .form-control, 
+    .form-select {
+      transition: all 0.3s ease;
       color: #333;
-    }
-
-    .main-content .form-control,
-    .main-content .form-select {
-      transition: border-color 0.3s, box-shadow 0.3s;
     }
 
     .main-content .form-control:focus,
@@ -374,17 +363,17 @@ foreach($available_leaves as $leave) {
 <div class="main-content" id="main-content">
   <div class="container-fluid px-0">
     <div class="card shadow-sm rounded-4 p-5 border-0" style="background: #ffffff;">
-      <h4 class="mb-4 fw-semibold text-leave-title">Apply for Leave</h4>      <?php if ($error) { ?>
-        <div class="errorWrap alert alert-dismissible fade show">
+      <h4 class="mb-4 fw-semibold text-leave-title">Apply for Leave</h4>      <?php if ($error): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
           <?php echo htmlentities($error); ?>
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-      <?php } else if ($msg) { ?>
-        <div class="succWrap alert alert-dismissible fade show">
+      <?php elseif ($msg): ?>
+        <div class="alert alert-success alert-dismissible fade show">
           <?php echo htmlentities($msg); ?>
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-      <?php } ?>
+      <?php endif; ?>
 
       <form method="post">
         <div class="row g-4 mb-4">
