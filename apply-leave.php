@@ -61,7 +61,8 @@ if (isset($_POST['apply'])) {
             
             if($query->fetchColumn() > 0) {
                 $error = "You already have a leave application for these dates";
-            } else {                // Get leave type ID and maximum allowed
+            } else { 
+               // Get leave type ID and maximum allowed
                 $sql = "SELECT id, max FROM tblleavetype WHERE LeaveType = :leavetype";
                 $query = $dbh->prepare($sql);
                 $query->bindParam(':leavetype', $leavetype, PDO::PARAM_STR);
