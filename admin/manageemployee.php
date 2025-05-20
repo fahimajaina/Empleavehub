@@ -16,8 +16,8 @@ $error = '';
 $success = '';
 
 // Handle employee status change (active/inactive)
-if (isset($_GET['del']) && !empty($_GET['del'])) {
-    $empId = intval($_GET['del']);
+if (isset($_POST['toggle_status']) && !empty($_POST['empId'])) {
+    $empId = intval($_POST['empId']);
     try {
         // Check if employee has any pending leaves
         $checkSql = "SELECT COUNT(*) FROM tblleaves WHERE empid = :empId AND Status = 0";
@@ -26,7 +26,7 @@ if (isset($_GET['del']) && !empty($_GET['del'])) {
         $checkStmt->execute();
         
         if ($checkStmt->fetchColumn() > 0) {
-            $error = "Cannot deactivate employee. They have pending leave applications.";
+            $_SESSION['error'] = "Cannot deactivate employee. They have pending leave applications.";
         } else {
             // Toggle employee status
             $sql = "UPDATE tblemployees SET Status = NOT Status WHERE id = :empId";
@@ -34,14 +34,18 @@ if (isset($_GET['del']) && !empty($_GET['del'])) {
             $stmt->bindParam(':empId', $empId, PDO::PARAM_INT);
             
             if ($stmt->execute()) {
-                $success = "Employee status updated successfully";
+                $_SESSION['success'] = "Employee status updated successfully";
             } else {
-                $error = "Error updating employee status";
+                $_SESSION['error'] = "Error updating employee status";
             }
         }
     } catch(PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $_SESSION['error'] = "Error: " . $e->getMessage();
     }
+    
+    // Redirect to remove POST data
+    header("Location: manageemployee.php");
+    exit();
 }
 
 // Fetch all employees with their department names
@@ -373,13 +377,17 @@ if (isset($_SESSION['error'])) {
                 <?php echo $emp['Status'] ? 'Active' : 'Inactive'; ?>
               </span>
             </td>
-            <td><?php echo htmlentities(date('Y-m-d H:i', strtotime($emp['RegDate']))); ?></td>            <td>
+            <td><?php echo htmlentities(date('Y-m-d H:i', strtotime($emp['RegDate']))); ?></td>
+            <td>
               <a href="editemployee.php?id=<?php echo htmlentities($emp['id']); ?>" class="btn btn-view btn-action me-1">Edit</a>
-              <a href="manageemployee.php?del=<?php echo htmlentities($emp['id']); ?>" 
-                 class="btn btn-danger btn-action" 
-                 onclick="return confirm('Are you sure you want to <?php echo $emp['Status'] ? 'deactivate' : 'activate'; ?> this employee?');">
-                 <?php echo $emp['Status'] ? 'Deactivate' : 'Activate'; ?>
-              </a>
+              <form method="POST" style="display: inline;">
+                <input type="hidden" name="empId" value="<?php echo htmlentities($emp['id']); ?>">
+                <button type="submit" name="toggle_status" 
+                        class="btn btn-danger btn-action"
+                        onclick="return confirm('Are you sure you want to <?php echo $emp['Status'] ? 'deactivate' : 'activate'; ?> this employee?');">
+                  <?php echo $emp['Status'] ? 'Deactivate' : 'Activate'; ?>
+                </button>
+              </form>
             </td>
           </tr>
           <?php 
@@ -427,10 +435,10 @@ if (isset($_SESSION['error'])) {
   });
 
   // Initialize tooltips
-  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  /*var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
   var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
-  });
+  });8?
 </script>
 </body>
 </html>
