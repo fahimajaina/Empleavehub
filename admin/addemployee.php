@@ -133,22 +133,12 @@ if (isset($_POST['add'])) {
         }
         if (strlen($city) < 3 || strlen($city) > 50) {
             throw new Exception("City name must be between 3 and 50 characters");
-        }
-
-        // Country validation
+        }        // Country validation
         if (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
             throw new Exception("Country name must contain only letters");
         }
         if (strlen($country) < 3 || strlen($country) > 50) {
             throw new Exception("Country name must be between 3 and 50 characters");
-        }
-
-        // Validate DOB (must be at least 18 years old)
-        $dob_date = new DateTime($dob);
-        $today = new DateTime();
-        $age = $today->diff($dob_date)->y;
-        if ($age < 18) {
-            throw new Exception("Employee must be at least 18 years old");
         }
 
         // Hash password
