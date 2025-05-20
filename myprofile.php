@@ -14,7 +14,10 @@ $eid = $_SESSION['eid'];
 
 // Fetch employee data with department name
 try {
-    $sql = "SELECT e.*, d.DepartmentName as DeptName FROM tblemployees e 
+    // Fetch employee data along with department name in a single query
+    $sql = "SELECT e.*, d.DepartmentName as DeptName, 
+            d.id as DepartmentId, d.DepartmentName 
+            FROM tblemployees e 
             LEFT JOIN tbldepartments d ON e.Department = d.id 
             WHERE e.id = :eid";
     $query = $dbh->prepare($sql);
@@ -26,13 +29,8 @@ try {
         header('location: logout.php');
         exit();
     }
-} catch (PDOException $e) {
-    error_log("Error fetching profile data: " . $e->getMessage());
-    $error = "Error fetching profile data";
-}
 
-// Fetch departments
-try {
+    // Fetch all departments for the dropdown
     $sql = "SELECT id, DepartmentName FROM tbldepartments ORDER BY DepartmentName";
     $query = $dbh->prepare($sql);
     $query->execute();
@@ -63,10 +61,10 @@ if (isset($_POST['update'])) {
     // Validation
     if (empty($firstName) || empty($lastName) || empty($mobileno) || empty($dob) || empty($address) || empty($city) || empty($country)) {
         $error = "All fields are required";
-    } elseif (!preg_match("/^[a-zA-Z\s]+$/", $firstName)) {
-        $error = "First Name must contain only letters";
-    } elseif (!preg_match("/^[a-zA-Z\s]+$/", $lastName)) {
-        $error = "Last Name must contain only letters";
+    } elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $firstName)) {
+        $error = "First name should only contain letters and be between 3-50 characters";
+    } elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $lastName)) {
+        $error = "Last name should only contain letters and be between 3-50 characters";
     } elseif (!preg_match("/^[0-9]{11}$/", $mobileno)) {
         $error = "Mobile number must be 11 digits";
     } 
@@ -96,18 +94,13 @@ if (isset($_POST['update'])) {
         $error = "Address is too long. Maximum 200 characters allowed";
     } elseif (!preg_match("/^[a-zA-Z0-9\s,.\/-]+$/", $address)) {
         $error = "Address contains invalid characters";
-    }
-    // City validation
-    elseif (!preg_match("/^[a-zA-Z\s]+$/", $city)) {
-        $error = "City name must contain only letters";
-    } elseif (strlen($city) < 2 || strlen($city) > 50) {
-        $error = "City name must be between 2 and 50 characters";
+    }    // City validation
+    elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $city)) {
+        $error = "City name must contain only letters and be between 3-50 characters";
     }
     // Country validation
-    elseif (!preg_match("/^[a-zA-Z\s]+$/", $country)) {
-        $error = "Country name must contain only letters";
-    } elseif (strlen($country) < 2 || strlen($country) > 50) {
-        $error = "Country name must be between 2 and 50 characters";
+    elseif (!preg_match("/^[a-zA-Z ]{3,50}$/", $country)) {
+        $error = "Country name must contain only letters and be between 3-50 characters";
     } else {
         try {
             $sql = "UPDATE tblemployees SET 
