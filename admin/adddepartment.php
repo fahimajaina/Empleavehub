@@ -11,33 +11,52 @@ if(!isset($_SESSION['alogin']) || empty($_SESSION['alogin'])) {
 // Handle form submission
 if(isset($_POST['add'])) {
     try {
-        $deptname = $_POST['departmentname'];
-        $deptshortname = $_POST['departmentshortname'];
-        $deptcode = $_POST['deptcode'];
+        $deptname = trim($_POST['departmentname']);
+        $deptshortname = trim($_POST['departmentshortname']);
+        $deptcode = trim($_POST['deptcode']);
 
-        // Check if department code already exists
-        $stmt = $dbh->prepare("SELECT COUNT(*) FROM tbldepartments WHERE DepartmentCode = ?");
-        $stmt->execute([$deptcode]);
-        if($stmt->fetchColumn() > 0) {
-            $error = "Department code already exists";
+        // Check for empty values after trimming
+        if(empty($deptname) || empty($deptshortname) || empty($deptcode)) {
+            $error = "All fields are required and cannot be empty";
         } else {
-            // Insert department
-            $sql = "INSERT INTO tbldepartments (DepartmentName, DepartmentShortName, DepartmentCode) 
-                    VALUES (:deptname, :deptshortname, :deptcode)";
-            
-            $query = $dbh->prepare($sql);
-            $query->bindParam(':deptname', $deptname, PDO::PARAM_STR);
-            $query->bindParam(':deptshortname', $deptshortname, PDO::PARAM_STR);
-            $query->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
-            $query->execute();
-            
-            if($query->rowCount() > 0) {
-                $_SESSION['success_msg'] = "Department added successfully";
-                // Redirect to the same page to prevent form resubmission
-                header("Location: adddepartment.php");
-                exit();
+            // Check if department name already exists (case insensitive)
+            $stmt = $dbh->prepare("SELECT COUNT(*) FROM tbldepartments WHERE LOWER(DepartmentName) = LOWER(?)");
+            $stmt->execute([$deptname]);
+            if($stmt->fetchColumn() > 0) {
+                $error = "Department name already exists";
             } else {
-                $error = "Something went wrong. Please try again";
+                // Check if department short name already exists (case insensitive)
+                $stmt = $dbh->prepare("SELECT COUNT(*) FROM tbldepartments WHERE LOWER(DepartmentShortName) = LOWER(?)");
+                $stmt->execute([$deptshortname]);
+                if($stmt->fetchColumn() > 0) {
+                    $error = "Department short name already exists";
+                } else {
+                    // Check if department code already exists
+                    $stmt = $dbh->prepare("SELECT COUNT(*) FROM tbldepartments WHERE DepartmentCode = ?");
+                    $stmt->execute([$deptcode]);
+                    if($stmt->fetchColumn() > 0) {
+                        $error = "Department code already exists";
+                    } else {
+                        // Insert department
+                        $sql = "INSERT INTO tbldepartments (DepartmentName, DepartmentShortName, DepartmentCode) 
+                                VALUES (:deptname, :deptshortname, :deptcode)";
+                        
+                        $query = $dbh->prepare($sql);
+                        $query->bindParam(':deptname', $deptname, PDO::PARAM_STR);
+                        $query->bindParam(':deptshortname', $deptshortname, PDO::PARAM_STR);
+                        $query->bindParam(':deptcode', $deptcode, PDO::PARAM_STR);
+                        $query->execute();
+                        
+                        if($query->rowCount() > 0) {
+                            $_SESSION['success_msg'] = "Department added successfully";
+                            // Redirect to the same page to prevent form resubmission
+                            header("Location: adddepartment.php");
+                            exit();
+                        } else {
+                            $error = "Something went wrong. Please try again";
+                        }
+                    }
+                }
             }
         }
     } catch(PDOException $e) {
