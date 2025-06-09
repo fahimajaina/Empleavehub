@@ -203,7 +203,41 @@ ALTER TABLE `tblleaves`
 
 ALTER TABLE `tblemployees`
   ADD CONSTRAINT `tblemployees_ibfk_1` FOREIGN KEY (`Department`) REFERENCES `tbldepartments` (`id`) ON DELETE RESTRICT;
-COMMIT;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tblreset_tokens`
+--
+
+CREATE TABLE `tblreset_tokens` (
+  `id` int(11) NOT NULL,
+  `emp_id` varchar(100) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Indexes for table `tblreset_tokens`
+--
+ALTER TABLE `tblreset_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `emp_id` (`emp_id`);
+
+--
+-- AUTO_INCREMENT for table `tblreset_tokens`
+--
+ALTER TABLE `tblreset_tokens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for table `tblreset_tokens`
+--
+ALTER TABLE `tblreset_tokens`
+  ADD CONSTRAINT `tblreset_tokens_ibfk_1` FOREIGN KEY (`emp_id`) REFERENCES `tblemployees` (`EmpId`) ON DELETE CASCADE;
+
+
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
