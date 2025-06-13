@@ -1,3 +1,93 @@
+<?php
+// Start session to store status messages
+session_start();
+// Include database configuration
+require_once('include/config.php');
+
+// Get token from URL
+$token = isset($_GET['token']) ? $_GET['token'] : '';
+$email = isset($_GET['email']) ? $_GET['email'] : '';
+$validToken = false;
+$empId = '';
+
+// Check if token exists and is valid
+if(!empty($token)) {
+    $sql = "SELECT r.*, e.EmailId FROM tblreset_tokens r 
+            INNER JOIN tblemployees e ON e.EmpId = r.emp_id
+            WHERE r.token = :token AND r.expires_at > NOW()";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':token', $token, PDO::PARAM_STR);
+    $query->execute();
+    
+    if($query->rowCount() > 0) {
+        $result = $query->fetch(PDO::FETCH_OBJ);
+        $validToken = true;
+        $empId = $result->emp_id;
+        // If email not in URL, get from database
+        if(empty($email)) {
+            $email = $result->EmailId;
+        }
+    }
+}
+
+// Handle password reset form submission
+if(isset($_POST['change'])) {
+    $password = $_POST['newpassword'];
+    $confirmPassword = $_POST['confirmpassword'];
+    $token = $_POST['token'];
+    
+    // Validate password
+    if(strlen($password) < 8) {
+        $_SESSION['error'] = "Password must be at least 8 characters long.";
+    } elseif(!preg_match('/[A-Z]/', $password)) {
+        $_SESSION['error'] = "Password must contain at least one uppercase letter.";
+    } elseif(!preg_match('/[a-z]/', $password)) {
+        $_SESSION['error'] = "Password must contain at least one lowercase letter.";
+    } elseif(!preg_match('/[0-9]/', $password)) {
+        $_SESSION['error'] = "Password must contain at least one number.";
+    } elseif($password !== $confirmPassword) {
+        $_SESSION['error'] = "Passwords do not match.";
+    } else {
+        // Validate token again
+        $sql = "SELECT * FROM tblreset_tokens WHERE token = :token AND expires_at > NOW()";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':token', $token, PDO::PARAM_STR);
+        $query->execute();
+        
+        if($query->rowCount() > 0) {
+            $result = $query->fetch(PDO::FETCH_OBJ);
+            $empId = $result->emp_id;
+            
+            // Hash the password
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Update the password in the database
+            $sql = "UPDATE tblemployees SET Password = :password WHERE EmpId = :empid";
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
+            $query->bindParam(':empid', $empId, PDO::PARAM_STR);
+            $query->execute();
+            
+            if($query->rowCount() > 0) {
+                // Delete the token after successful password reset
+                $deleteSql = "DELETE FROM tblreset_tokens WHERE token = :token";
+                $deleteQuery = $dbh->prepare($deleteSql);
+                $deleteQuery->bindParam(':token', $token, PDO::PARAM_STR);
+                $deleteQuery->execute();
+                
+                $_SESSION['success'] = "Password has been reset successfully. You can now login with your new password.";
+                // Redirect to login page after 3 seconds
+                header("Refresh: 3; URL=index.php");
+            } else {
+                $_SESSION['error'] = "Something went wrong. Please try again.";
+            }
+        } else {
+            $_SESSION['error'] = "Invalid or expired token. Please request a new reset link.";
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,20 +105,21 @@
     body {
       font-family: 'Poppins', sans-serif;
       background: linear-gradient(135deg, #e0f7f7, #ffffff);
-      margin: 0;
-      padding-top: 60px;
-    }
-
-    .main-content {
-      padding: 80px 20px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
     }
 
     .card {
-      border: none;
-      border-radius: 15px;
+      width: 100%;
+      max-width: 450px;
       padding: 40px 30px;
-      background: #ffffff;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+      border: none;
     }
 
     .text-heading {
@@ -41,6 +132,7 @@
 
     .form-group {
       position: relative;
+      margin-bottom: 20px;
     }
 
     .form-group input.form-control {
@@ -56,6 +148,20 @@
       border-color: #48A6A7;
       box-shadow: 0 0 0 0.2rem rgba(72, 166, 167, 0.25);
       background: #fff;
+    }
+
+    .email-display {
+      background-color: #f0f8f8;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    .email-display strong {
+      color: #48A6A7;
     }
 
     .form-group label {
@@ -77,41 +183,74 @@
     }
 
     .custom-btn {
-      background-color: #3b8d8e;
+      background-color: #48A6A7;
       border: none;
-      border-radius: 12px;
-      font-weight: 600;
+      border-radius: 10px;
+      font-weight: 500;
       color: #fff;
       padding: 12px 0;
       width: 100%;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.3s ease, transform 0.2s ease;
       font-size: 16px;
     }
 
     .custom-btn:hover {
-      background-color: #327979;
+      background-color: #3a8d8d;
+      transform: translateY(-1px);
     }
 
-   
-
-    .back-link {
+       .back-link {
       margin-top: 20px;
       display: inline-flex;
       align-items: center;
-    }
-
-    .back-link a {
+      color: #555;
       text-decoration: none;
-      color: #48A6A7;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      font-size: 15px;
+      transition: color 0.2s ease;
     }
 
-    .back-link .material-icons {
-      margin-right: 5px;
-      font-size: 20px;
+    .back-link:hover {
+      color: #48A6A7;
+    }
+    
+    .alert {
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+        color: #888;
+        cursor: pointer;
+    }
+    
+    .invalid-token {
+        text-align: center;
+        padding: 20px;
+    }
+      .invalid-token .material-icons {
+        font-size: 60px;
+        color: #dc3545;
+        margin-bottom: 20px;
+    }
+    
+    .password-requirements {
+        font-size: 12px;
+        color: #666;
+        padding-left: 10px;
+    }
+    
+    .password-requirements small {
+        margin-bottom: 2px;
+    }
+    
+    .text-success {
+        color: #28a745 !important;
+    }
+    
+    .text-danger {
+        color: #dc3545 !important;
     }
 
     @media (max-width: 576px) {
@@ -127,62 +266,163 @@
 </head>
 <body>
 
-<!-- Main Content -->
-<div class="main-content">
-  <div class="container">
-    <div class="row justify-content-center">
-      <div class="col-md-6">
-        <div class="card shadow-sm">
-          <h3 class="text-heading">Change Password</h3>
-
-         
-
-          <form>
-            <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="newpassword" placeholder=" " required>
-              <label for="newpassword">New Password</label>
-            </div>
-
-            <div class="form-group mb-4 position-relative">
-              <input type="password" class="form-control" id="confirmpassword" placeholder=" " required>
-              <label for="confirmpassword">Confirm New Password</label>
-            </div>
-
-            <div class="form-group mb-3">
-              <button type="submit" name="change" class="custom-btn" onclick="return valid();">
-                Change Password
-              </button>
-            </div>
-          </form>
-
-        
-          <div class="d-flex justify-content-center mt-3">
-            <div class="back-link">
-              <a href="forgot-password.php">
-                <span class="material-icons">arrow_back</span> Back
-              </a>
-            </div>
-          </div>
-
-        </div>
+  <div class="card">
+    <?php if(isset($_SESSION['success'])): ?>
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?php echo $_SESSION['success']; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
-    </div>
+      <?php unset($_SESSION['success']); ?>
+    <?php endif; ?>
+    
+    <?php if(isset($_SESSION['error'])): ?>
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?php echo $_SESSION['error']; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+      <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
+    <?php if(!$validToken): ?>
+      <div class="invalid-token">
+        <div class="material-icons">error_outline</div>
+        <h4>Invalid or Expired Link</h4>
+        <p>The password reset link is invalid or has expired. Please request a new password reset link.</p>
+        <a href="forgot-password.php" class="btn custom-btn mt-3">Request New Link</a>
+      </div>
+    <?php else: ?>
+      <h3 class="text-heading"><span class="material-icons">lock_reset</span> Reset Password</h3>
+      
+      <div class="email-display">
+        <span class="material-icons">email</span> 
+        <strong>Email:</strong> <?php echo htmlspecialchars($email); ?>
+      </div>
+
+      <form method="post" onsubmit="return validatePassword()">
+        <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
+          <div class="form-group position-relative">
+          <input type="password" class="form-control" id="newpassword" name="newpassword" placeholder=" " required onkeyup="checkPasswordStrength()">
+          <label for="newpassword">New Password</label>
+          <span class="material-icons password-toggle" onclick="togglePassword('newpassword')">visibility_off</span>
+        </div>
+        
+        <div class="password-requirements mt-1 mb-3">
+          <small class="d-block"><span id="length-check" class="text-danger">✗</span> At least 8 characters</small>
+          <small class="d-block"><span id="uppercase-check" class="text-danger">✗</span> At least 1 uppercase letter</small>
+          <small class="d-block"><span id="lowercase-check" class="text-danger">✗</span> At least 1 lowercase letter</small>
+          <small class="d-block"><span id="number-check" class="text-danger">✗</span> At least 1 number</small>
+        </div>
+
+        <div class="form-group position-relative">
+          <input type="password" class="form-control" id="confirmpassword" name="confirmpassword" placeholder=" " required>
+          <label for="confirmpassword">Confirm Password</label>
+          <span class="material-icons password-toggle" onclick="togglePassword('confirmpassword')">visibility_off</span>
+        </div>
+
+        <div class="form-group mt-4">
+          <button type="submit" name="change" class="custom-btn">
+            Change Password
+          </button>
+        </div>
+      </form>
+
+      <div class="d-flex justify-content-center mt-3">
+        <a href="index.php" class="back-link">
+          <span class="material-icons">arrow_back</span> Back to Login
+        </a>
+      </div>
+    <?php endif; ?>
   </div>
-</div>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  function valid() {
-    const newPassword = document.getElementById('newpassword').value;
-    const confirmPassword = document.getElementById('confirmpassword').value;
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>  <script>
+    function validatePassword() {
+      const newPassword = document.getElementById('newpassword').value;
+      const confirmPassword = document.getElementById('confirmpassword').value;
+      
+      // Check minimum length
+      if (newPassword.length < 8) {
+        alert("Password must be at least 8 characters long.");
+        return false;
+      }
+      
+      // Check for uppercase letter
+      if (!/[A-Z]/.test(newPassword)) {
+        alert("Password must contain at least one uppercase letter.");
+        return false;
+      }
+      
+      // Check for lowercase letter
+      if (!/[a-z]/.test(newPassword)) {
+        alert("Password must contain at least one lowercase letter.");
+        return false;
+      }
+      
+      // Check for number
+      if (!/[0-9]/.test(newPassword)) {
+        alert("Password must contain at least one number.");
+        return false;
+      }
 
-    if (newPassword !== confirmPassword) {
-      alert("New Password and Confirm Password do not match.");
-      return false;
+      // Check if passwords match
+      if (newPassword !== confirmPassword) {
+        alert("New Password and Confirm Password do not match.");
+        return false;
+      }
+      return true;
     }
-    return true;
-  }
-</script>
+      function togglePassword(inputId) {
+      const input = document.getElementById(inputId);
+      const icon = input.nextElementSibling.nextElementSibling;
+      
+      if (input.type === "password") {
+        input.type = "text";
+        icon.textContent = "visibility";
+      } else {
+        input.type = "password";
+        icon.textContent = "visibility_off";
+      }
+    }
+    
+    function checkPasswordStrength() {
+      const password = document.getElementById('newpassword').value;
+      
+      // Check minimum length
+      if (password.length >= 8) {
+        document.getElementById('length-check').textContent = "✓";
+        document.getElementById('length-check').className = "text-success";
+      } else {
+        document.getElementById('length-check').textContent = "✗";
+        document.getElementById('length-check').className = "text-danger";
+      }
+      
+      // Check for uppercase letter
+      if (/[A-Z]/.test(password)) {
+        document.getElementById('uppercase-check').textContent = "✓";
+        document.getElementById('uppercase-check').className = "text-success";
+      } else {
+        document.getElementById('uppercase-check').textContent = "✗";
+        document.getElementById('uppercase-check').className = "text-danger";
+      }
+      
+      // Check for lowercase letter
+      if (/[a-z]/.test(password)) {
+        document.getElementById('lowercase-check').textContent = "✓";
+        document.getElementById('lowercase-check').className = "text-success";
+      } else {
+        document.getElementById('lowercase-check').textContent = "✗";
+        document.getElementById('lowercase-check').className = "text-danger";
+      }
+      
+      // Check for number
+      if (/[0-9]/.test(password)) {
+        document.getElementById('number-check').textContent = "✓";
+        document.getElementById('number-check').className = "text-success";
+      } else {
+        document.getElementById('number-check').textContent = "✗";
+        document.getElementById('number-check').className = "text-danger";
+      }
+    }
+  </script>
 </body>
 </html>
