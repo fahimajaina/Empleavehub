@@ -132,7 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $query->bindParam(':country', $country, PDO::PARAM_STR);
                     $query->bindParam(':empid', $empid, PDO::PARAM_INT);
                     if ($query->execute()) {
-                        $success = 'Employee record updated successfully';
+                        $_SESSION['success'] = 'Employee record updated successfully';
+                        header('location: manageemployee.php');
+                        exit();
                     } else {
                         $error = 'Something went wrong. Please try again';
                     }
