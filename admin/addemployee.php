@@ -509,11 +509,19 @@ try {
       </div>
       <div class="col-md-6">
         <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="password" value="" autocomplete="off" required>
+        <div class="position-relative">
+          <input type="password" class="form-control" id="password" name="password" value="" autocomplete="off" required>
+          <span class="material-icons position-absolute top-50 end-0 translate-middle-y me-2 text-muted" 
+                style="cursor: pointer;" onclick="togglePassword('password')">visibility_off</span>
+        </div>
       </div>
       <div class="col-md-6">
         <label for="confirm" class="form-label">Confirm password</label>
-        <input type="password" class="form-control" id="confirm" name="confirmpassword" value="" autocomplete="off" required>
+        <div class="position-relative">
+          <input type="password" class="form-control" id="confirm" name="confirmpassword" value="" autocomplete="off" required>
+          <span class="material-icons position-absolute top-50 end-0 translate-middle-y me-2 text-muted" 
+                style="cursor: pointer;" onclick="togglePassword('confirm')">visibility_off</span>
+        </div>
       </div>
       <div class="col-12 mt-3">
         <button type="submit" name="add" id="add" class="btn btn-custom w-100">Add</button>
@@ -633,6 +641,20 @@ function validateForm() {
     }
 
     return true;
+}
+
+// Toggle password visibility
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = input.parentElement.querySelector('.material-icons');
+    
+    if (input.type === "password") {
+        input.type = "text";
+        icon.textContent = "visibility";
+    } else {
+        input.type = "password";
+        icon.textContent = "visibility_off";
+    }
 }
 
 // Toggle sidebar
