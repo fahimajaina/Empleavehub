@@ -491,9 +491,15 @@ if(isset($_GET['success'])) {
           </tr>
           <tr>
             <td colspan="6">
-              <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#actionModal">
-                <span class="material-icons align-middle">gavel</span> Take Action
-              </button>
+              <?php if ($leaveDetails['Status'] == 0): // If status is pending ?>
+                <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#actionModal">
+                  <span class="material-icons align-middle">gavel</span> Take Action
+                </button>
+              <?php else: // If status is approved (1) or not approved (2) ?>
+                <button type="button" class="btn btn-secondary" disabled>
+                  <span class="material-icons align-middle">check_circle</span> Action Already Taken
+                </button>
+              <?php endif; ?>
             </td>
           </tr>
         </tbody>
@@ -513,6 +519,16 @@ if(isset($_GET['success'])) {
         </div>
 
         <div class="modal-body">
+          <?php if ($leaveDetails['Status'] != 0): // If status is not pending ?>
+            <div class="alert alert-warning">
+              <div class="d-flex align-items-center">
+                <span class="material-icons me-2">warning</span>
+                <strong>Action already taken on this leave request.</strong>
+              </div>
+              <p class="mb-0 mt-2">This leave request has already been <?php echo $leaveDetails['Status'] == 1 ? 'approved' : 'rejected'; ?>. 
+              Making changes now may cause inconsistencies in the employee's leave records.</p>
+            </div>
+          <?php endif; ?>
           <div class="mb-3">
             <label for="leaveStatus" class="form-label">Leave Status</label>
             <select class="form-select" name="status" id="leaveStatus" required>
@@ -547,6 +563,17 @@ if(isset($_GET['success'])) {
   toggleBtn?.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
     mainContent.classList.toggle('collapsed');
+  });
+  
+  // Check if form submission is on an already processed leave
+  document.querySelector('form[name="adminaction"]')?.addEventListener('submit', function(e) {
+    const leaveStatus = <?php echo $leaveDetails['Status']; ?>;
+    if (leaveStatus != 0) {
+      if (!confirm("Warning: This leave request has already been processed. Are you sure you want to change its status? This may affect leave records.")) {
+        e.preventDefault();
+        return false;
+      }
+    }
   });
 </script>
 
