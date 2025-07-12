@@ -431,12 +431,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
     <div class="row g-4">
       <div class="col-md-6">
-        <label for="empcode" class="form-label">Employee Code</label>
-        <input type="text" class="form-control" name="empcode" id="empcode" value="<?php echo htmlspecialchars($employee['EmpId']); ?>" readonly required>
+        <label class="form-label">Employee Code</label>
+        <div class="p-2 bg-light rounded border"><?php echo htmlspecialchars($employee['EmpId']); ?></div>
+        <input type="hidden" name="empcode" value="<?php echo htmlspecialchars($employee['EmpId']); ?>">
       </div>
       <div class="col-md-6">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($employee['EmailId']); ?>" readonly required>
+        <label class="form-label">Email</label>
+        <div class="p-2 bg-light rounded border"><?php echo htmlspecialchars($employee['EmailId']); ?></div>
+        <input type="hidden" name="email" value="<?php echo htmlspecialchars($employee['EmailId']); ?>">
       </div>
       <div class="col-md-6">
         <label for="firstName" class="form-label">First Name</label>
@@ -505,7 +507,6 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
     const city = document.getElementById('city').value.trim();
     const country = document.getElementById('country').value.trim();
     const dob = document.getElementById('birthdate').value;
-    const email = document.getElementById('email').value.trim();
     
     // Name validation (3-50 characters, letters only)
     const nameRegex = /^[a-zA-Z ]{3,50}$/;
@@ -520,16 +521,7 @@ document.getElementById('updateEmployeeForm').addEventListener('submit', functio
         return false;
     }
 
-    // Email validation
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!email) {
-        alert("Email address is required");
-        return false;
-    }
-    if (!emailRegex.test(email)) {
-        alert("Please enter a valid email address");
-        return false;
-    }
+    // Email is no longer an editable field, so we don't need to validate it here
 
     // Phone validation (11 digits)
     if (!/^[0-9]{11}$/.test(phone)) {
