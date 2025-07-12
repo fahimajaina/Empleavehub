@@ -301,16 +301,15 @@ if(isset($_POST['change'])) {
       <form method="post" onsubmit="return validatePassword()">
         <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
           <div class="form-group position-relative">
-          <input type="password" class="form-control" id="newpassword" name="newpassword" placeholder=" " required onkeyup="checkPasswordStrength()">
+          <input type="password" class="form-control" id="newpassword" name="newpassword" 
+                 placeholder=" " required 
+                 pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" 
+                 title="Must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number">
           <label for="newpassword">New Password</label>
           <span class="material-icons password-toggle" onclick="togglePassword('newpassword')">visibility_off</span>
-        </div>
-        
-        <div class="password-requirements mt-1 mb-3">
-          <small class="d-block"><span id="length-check" class="text-danger">✗</span> At least 8 characters</small>
-          <small class="d-block"><span id="uppercase-check" class="text-danger">✗</span> At least 1 uppercase letter</small>
-          <small class="d-block"><span id="lowercase-check" class="text-danger">✗</span> At least 1 lowercase letter</small>
-          <small class="d-block"><span id="number-check" class="text-danger">✗</span> At least 1 number</small>
+          <small class="form-text text-danger mt-2">
+            Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.
+          </small>
         </div>
 
         <div class="form-group position-relative">
@@ -340,38 +339,45 @@ if(isset($_POST['change'])) {
       const newPassword = document.getElementById('newpassword').value;
       const confirmPassword = document.getElementById('confirmpassword').value;
       
-      // Check minimum length
+      // Check if passwords are empty
+      if (!newPassword || !confirmPassword) {
+        alert("All password fields are required");
+        return false;
+      }
+      
+      // Check password requirements
       if (newPassword.length < 8) {
-        alert("Password must be at least 8 characters long.");
+        alert("Password must be at least 8 characters long");
         return false;
       }
       
       // Check for uppercase letter
       if (!/[A-Z]/.test(newPassword)) {
-        alert("Password must contain at least one uppercase letter.");
+        alert("Password must contain at least one uppercase letter");
         return false;
       }
       
       // Check for lowercase letter
       if (!/[a-z]/.test(newPassword)) {
-        alert("Password must contain at least one lowercase letter.");
+        alert("Password must contain at least one lowercase letter");
         return false;
       }
       
       // Check for number
       if (!/[0-9]/.test(newPassword)) {
-        alert("Password must contain at least one number.");
+        alert("Password must contain at least one number");
         return false;
       }
 
       // Check if passwords match
       if (newPassword !== confirmPassword) {
-        alert("New Password and Confirm Password do not match.");
+        alert("New Password and Confirm Password do not match");
         return false;
       }
       return true;
     }
-      function togglePassword(inputId) {
+    
+    function togglePassword(inputId) {
       const input = document.getElementById(inputId);
       const icon = input.nextElementSibling.nextElementSibling;
       
@@ -381,46 +387,6 @@ if(isset($_POST['change'])) {
       } else {
         input.type = "password";
         icon.textContent = "visibility_off";
-      }
-    }
-    
-    function checkPasswordStrength() {
-      const password = document.getElementById('newpassword').value;
-      
-      // Check minimum length
-      if (password.length >= 8) {
-        document.getElementById('length-check').textContent = "✓";
-        document.getElementById('length-check').className = "text-success";
-      } else {
-        document.getElementById('length-check').textContent = "✗";
-        document.getElementById('length-check').className = "text-danger";
-      }
-      
-      // Check for uppercase letter
-      if (/[A-Z]/.test(password)) {
-        document.getElementById('uppercase-check').textContent = "✓";
-        document.getElementById('uppercase-check').className = "text-success";
-      } else {
-        document.getElementById('uppercase-check').textContent = "✗";
-        document.getElementById('uppercase-check').className = "text-danger";
-      }
-      
-      // Check for lowercase letter
-      if (/[a-z]/.test(password)) {
-        document.getElementById('lowercase-check').textContent = "✓";
-        document.getElementById('lowercase-check').className = "text-success";
-      } else {
-        document.getElementById('lowercase-check').textContent = "✗";
-        document.getElementById('lowercase-check').className = "text-danger";
-      }
-      
-      // Check for number
-      if (/[0-9]/.test(password)) {
-        document.getElementById('number-check').textContent = "✓";
-        document.getElementById('number-check').className = "text-success";
-      } else {
-        document.getElementById('number-check').textContent = "✗";
-        document.getElementById('number-check').className = "text-danger";
       }
     }
   </script>
