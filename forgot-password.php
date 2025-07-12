@@ -27,7 +27,7 @@ if(isset($_POST['send'])) {
       
       // Generate a unique reset token
       $token = bin2hex(random_bytes(32));
-      $expiry = date('Y-m-d H:i:s', strtotime('+2 hours'));
+      $expiry = date('Y-m-d H:i:s', strtotime('+24 hours'));
       
       // Store the token in database (first check if a reset entry already exists)
       $checkSql = "SELECT * FROM tblreset_tokens WHERE emp_id = :empid";
@@ -96,7 +96,7 @@ if(isset($_POST['send'])) {
               <a href='$resetUrl' class='button'>Reset Your Password</a>
             </p>
             <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
-            <p>This link is valid for 2 hours.</p>
+            <p>This link is valid for 24 hours.</p>
             <p>Best regards,<br>EmpLeaveHub Team</p>
           </div>
         </div>
